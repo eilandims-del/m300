@@ -1,7 +1,40 @@
 :root {
-  color: #172033;
-  background: #f4f7fb;
+  /* Paleta / tokens do tema ---------------------------------------- */
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  --brand-soft: #eff4ff;
+  --ink: #0f1b2d;
+  --text: #1f2a3d;
+  --muted: #64748b;
+  --line: #e6ecf3;
+  --line-strong: #d8e2ee;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --bg: #eef2f8;
+  --ok: #16a34a;
+  --warn: #f59e0b;
+  --bad: #dc2626;
+
+  --radius-sm: 12px;
+  --radius: 16px;
+  --radius-lg: 22px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+  --shadow-md: 0 14px 40px rgba(15, 23, 42, 0.10);
+
+  --ease: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(37, 99, 235, 0.06), transparent 60%),
+    radial-gradient(1000px 500px at -10% 0%, rgba(22, 163, 74, 0.05), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -1768,4 +1801,677 @@ button:disabled {
   .view-nav,
   .filters-panel,
   .upload-area { display: none; }
+}
+
+/* ================================================================= */
+/* Visual refresh — camada de refinamento (aplicada por último)      */
+/* Objetivo: aparência mais limpa, moderna e confortável de ler.     */
+/* ================================================================= */
+
+body {
+  color: var(--text);
+}
+
+/* Superfícies (painéis e cards) mais suaves e consistentes ---------- */
+.panel,
+.metric-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--ease), border-color var(--ease), transform var(--ease);
+}
+
+.panel:hover {
+  box-shadow: var(--shadow);
+  border-color: var(--line-strong);
+}
+
+/* Hero com profundidade e leitura mais suave ----------------------- */
+.hero {
+  background:
+    radial-gradient(600px 200px at 90% 0%, rgba(56, 189, 248, 0.25), transparent 60%),
+    linear-gradient(135deg, #0b2540, #0f4c63 55%, #12657a);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Cabeçalhos de seção com um "eyebrow" visual ---------------------- */
+.section-title {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-title::before {
+  content: "";
+  width: 4px;
+  height: 1.05em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand), var(--ok));
+}
+
+.section-subtitle {
+  color: var(--muted);
+}
+
+/* Cards de resumo / KPI: bordas suaves, ícone com brand, hover ----- */
+.overview-card,
+.kpi-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--ease), box-shadow var(--ease), border-color var(--ease);
+}
+
+.overview-card:hover,
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--line-strong);
+}
+
+.overview-icon {
+  background: var(--brand-soft);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.overview-label,
+.kpi-card .kpi-name,
+.report-stat-label {
+  letter-spacing: 0.02em;
+}
+
+/* Botões: mais tácteis e com estados claros ------------------------ */
+button {
+  transition: transform var(--ease), box-shadow var(--ease), background-color var(--ease), color var(--ease);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--brand), var(--brand-strong));
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+  border: 0;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.34);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.collapse-toggle {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  font-weight: 700;
+}
+
+.collapse-toggle:hover {
+  background: #e3ebff;
+}
+
+/* Tabelas: cabeçalho fixo elevado e linhas com hover confortável --- */
+.data-table thead th,
+.evidence-table thead th,
+.team-summary-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-strong);
+  color: #334155;
+}
+
+.data-table tbody tr,
+.evidence-table tbody tr {
+  transition: background-color var(--ease);
+}
+
+.data-table tbody tr:hover,
+.evidence-table tbody tr:hover {
+  background: var(--brand-soft);
+}
+
+.evidence-table .time-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Chips de alerta e prioridades: leitura mais agradável ------------ */
+.alert-tag-list li {
+  transition: transform var(--ease);
+}
+
+.alert-tag-list li:hover {
+  transform: translateY(-1px);
+}
+
+.alert-priority-list li {
+  border-radius: var(--radius-sm);
+  transition: border-color var(--ease), background-color var(--ease);
+}
+
+.alert-priority-list li:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+/* Foco acessível e consistente ------------------------------------- */
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Respeita preferência por menos movimento ------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- Evolutivo: Análise + Tempo de plataforma -------------------- */
+.analysis-grid {
+  gap: 16px;
+}
+
+.analysis-block {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.analysis-block h4 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+/* Ranking de causas com mini-barras -------------------------------- */
+.cause-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.cause-rank-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(60px, 1.4fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cause-rank-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cause-rank-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e6ecf3;
+  overflow: hidden;
+}
+
+.cause-rank-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), #60a5fa);
+  min-width: 4px;
+}
+
+.cause-rank-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--brand-strong);
+  font-size: 0.85rem;
+}
+
+/* Diagnóstico rápido ----------------------------------------------- */
+.analysis-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.analysis-summary-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.analysis-summary-metric strong {
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-summary-metric span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.analysis-summary-text {
+  margin: 0;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.analysis-diag-cell {
+  max-width: 260px;
+  color: #475569;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+/* Cartões-resumo do tempo de plataforma ---------------------------- */
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-tile.is-ok { border-left-color: var(--ok); }
+.stat-tile.is-bad { border-left-color: var(--bad); }
+
+.stat-tile-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat-tile-value {
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile-value small {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.stat-tile-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+/* Pílulas de status nas tabelas de plataforma ---------------------- */
+.platform-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-pill.is-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.platform-pill.is-bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.platform-empty {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.platform-daily-table td,
+.platform-daily-table th {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .platform-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.incident-first-of-day {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.incident-first-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.incident-shift-start {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Tabela de evidências por OS: agrupamento e leitura ---------- */
+.evidence-group-row th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 6px 10px;
+  background: #0f2942;
+  color: #cfe0f5;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 0;
+}
+
+/* Quando há grupo, a linha de colunas fica logo abaixo dele. */
+.evidence-table thead tr:nth-child(2) th {
+  top: 29px;
+}
+
+.evidence-group-timeline,
+.evidence-table .time-cell-start {
+  border-left: 2px solid var(--line-strong);
+}
+
+.evidence-group-tempos,
+.evidence-table .num-cell-start {
+  border-left: 2px solid var(--line-strong);
+}
+
+.evidence-table .time-cell,
+.evidence-table .num-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.evidence-table .num-cell {
+  color: #334155;
+}
+
+.evidence-table tbody tr {
+  transition: background-color var(--ease);
+}
+
+.evidence-row-clickable { cursor: pointer; }
+
+.evidence-row-first-os {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.os-first-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.evidence-badge {
+  display: inline-grid;
+  place-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.evidence-badge.empty {
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+/* ---- Relatório: leitura executiva simplificada ------------------- */
+.report-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.report-highlight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+}
+
+.report-highlight.tone-ok { border-left-color: var(--ok); }
+.report-highlight.tone-bad { border-left-color: var(--bad); }
+.report-highlight.tone-warn { border-left-color: var(--warn); }
+.report-highlight.tone-neutral { border-left-color: var(--brand); }
+
+.report-highlight-label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.report-highlight-value {
+  font-size: 1.9rem;
+  line-height: 1.05;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-highlight-value-sm {
+  font-size: 1.1rem;
+}
+
+.report-highlight-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-insight-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.kpi-insight-line strong {
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.kpi-insight-worst {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.report-positive {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 720px) {
+  .report-highlights {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sub-cabeçalho de grupo secundário (ex.: Rankings por equipe) ------ */
+/* Adota o mesmo design dos demais cabeçalhos colapsáveis.            */
+.section-subheader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 22px 0 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.section-subtitle-strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle-strong::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 4px;
+  height: 1.05em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand), var(--ok));
+}
+
+.heatmap-filter {
+  margin-bottom: 14px;
+}
+
+/* ================================================================= */
+/* Padronização de títulos — mesmo acento em seções e painéis        */
+/* Evita que cada bloco adote um estilo diferente de cabeçalho.      */
+/* ================================================================= */
+.panel h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.panel h3::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 4px;
+  height: 1.05em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand), var(--ok));
+}
+
+/* Cartões de gráfico são componentes repetidos: título mais leve e   */
+/* sem a barra de acento para não poluir a grade de gráficos.         */
+.chart-panel h3 {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.chart-panel h3::before {
+  display: none;
+}
+
+/* Subtitulos com mesma cor e tipografia em todo o app -------------- */
+.panel .section-subtitle,
+.dashboard-section .section-subtitle {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* Cabeçalhos colapsáveis alinhados (título + botão) ---------------- */
+.collapsible-header,
+.section-subheader,
+.panel-toolbar {
+  align-items: center;
+}
+
+/* Botão de encurtar/desencurtar idêntico em todos os blocos -------- */
+.collapse-toggle {
+  min-width: 128px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* Cartões (resumo, KPI, tempo de plataforma, destaques) com raio,   */
+/* borda e sombra consistentes ------------------------------------- */
+.overview-card,
+.kpi-card,
+.stat-tile,
+.report-highlight,
+.analysis-block,
+.mini-card {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+/* Notas de bloco recolhido padronizadas ---------------------------- */
+.collapsed-note {
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
 }

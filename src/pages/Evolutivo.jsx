@@ -207,6 +207,7 @@ function evolutionOptions(threshold, kpi) {
 
 function EvolutionAnalysisPanel({ analysis, selectedTeam, onTeamChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const maxCause = analysis.causeRanking.reduce((max, item) => Math.max(max, item.count), 0);
 
   return (
     <section className="panel">
@@ -232,23 +233,45 @@ function EvolutionAnalysisPanel({ analysis, selectedTeam, onTeamChange }) {
       </label>
 
       <div className="analysis-grid">
-        <div>
+        <div className="analysis-block">
           <h4>Causas das incidências</h4>
-          <ul className="compact-list">
-            {analysis.causeRanking.map((item) => <li key={item.cause}>{item.cause}: {item.count}</li>)}
-          </ul>
+          {analysis.causeRanking.length ? (
+            <ul className="cause-rank-list">
+              {analysis.causeRanking.map((item) => (
+                <li key={item.cause}>
+                  <span className="cause-rank-name" title={item.cause}>{item.cause}</span>
+                  <span className="cause-rank-bar">
+                    <span
+                      className="cause-rank-fill"
+                      style={{ width: `${maxCause > 0 ? (item.count / maxCause) * 100 : 0}%` }}
+                    />
+                  </span>
+                  <span className="cause-rank-count">{item.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="report-empty">Nenhuma causa registrada para esta equipe.</p>
+          )}
         </div>
-        <div>
+        <div className="analysis-block">
           <h4>Diagnóstico rápido</h4>
-          <p>
-            {analysis.incidents.length} incidências analisadas. A tabela abaixo mostra o intervalo entre incidências
-            e os KPIs de plataforma fora da meta.
-          </p>
+          <div className="analysis-summary">
+            <div className="analysis-summary-metric">
+              <strong>{analysis.incidents.length}</strong>
+              <span>incidências analisadas</span>
+            </div>
+            <p className="analysis-summary-text">
+              O "Tempo desde anterior" é medido apenas dentro do mesmo turno da equipe —
+              a 1ª OS de cada dia aparece marcada como início do turno. Valores fora da meta
+              ficam destacados em vermelho.
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="table-wrap">
-        <table>
+        <table className="data-table">
           <thead>
             <tr>
               <th>Data/Hora</th>
@@ -264,17 +287,30 @@ function EvolutionAnalysisPanel({ analysis, selectedTeam, onTeamChange }) {
           </thead>
           <tbody>
             {analysis.incidents.slice(0, 200).map((incident) => (
-              <tr key={incident.id}>
-                <td>{incident.data}</td>
-                <td>{incident.os}</td>
+              <tr key={incident.id} className={incident.isFirstOfDay ? 'incident-first-of-day' : ''}>
+                <td className="date-cell">{incident.data}</td>
+                <td>
+                  {incident.os}
+                  {incident.isFirstOfDay && <span className="incident-first-tag">1ª do dia</span>}
+                </td>
                 <td>{incident.causa}</td>
-                <td>{incident.minutosDesdeAnterior == null ? '-' : `${formatNumber(incident.minutosDesdeAnterior)} min`}</td>
+                <td>
+                  {incident.isFirstOfDay
+                    ? <span className="incident-shift-start">Início do turno</span>
+                    : incident.minutosDesdeAnterior == null ? '-' : `${formatNumber(incident.minutosDesdeAnterior)} min`}
+                </td>
                 {incident.statuses.map((status) => (
-                  <td key={status.kpi} className={status.ok ? 'status-ok-text' : 'status-bad-text'}>
-                    {status.value == null ? '-' : `${formatNumber(status.value)} / meta ${formatNumber(status.meta)}`}
+                  <td key={status.kpi}>
+                    {status.value == null ? (
+                      <span className="platform-empty">—</span>
+                    ) : (
+                      <span className={`platform-pill ${status.ok ? 'is-ok' : 'is-bad'}`}>
+                        {formatNumber(status.value)}
+                      </span>
+                    )}
                   </td>
                 ))}
-                <td>{incident.diagnostic}</td>
+                <td className="analysis-diag-cell">{incident.diagnostic}</td>
               </tr>
             ))}
           </tbody>
@@ -286,15 +322,26 @@ function EvolutionAnalysisPanel({ analysis, selectedTeam, onTeamChange }) {
   );
 }
 
+const PLATFORM_LABELS = ['1º Login', '1º Despacho', '1º Deslocamento'];
+
 function PlatformTimePanel({ analysis, selectedTeam, onTeamChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const daily = analysis.platformDaily || [];
+
+  const averages = useMemo(() => PLATFORM_LABELS.map((label) => {
+    const values = daily.map((day) => day.values[label]?.value).filter((value) => value != null);
+    const meta = daily.find((day) => day.values[label]?.meta != null)?.values[label]?.meta ?? null;
+    const avg = values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+    const threshold = getThreshold(label === '1º Deslocamento' ? '1º Desloc.' : label);
+    return { label, avg, meta, ok: isKpiOnTarget(avg, threshold) };
+  }), [daily]);
 
   return (
     <section className="panel">
       <div className="section-header collapsible-header">
         <div>
           <h3>Tempo de plataforma</h3>
-          <p className="section-subtitle">Detalhamento por incidência para 1º Login, 1º Despacho e 1º Deslocamento.</p>
+          <p className="section-subtitle">Resumo por dia do 1º Login, 1º Despacho e 1º Deslocamento da equipe no período filtrado.</p>
         </div>
         <button type="button" className="collapse-toggle" onClick={() => setIsExpanded((current) => !current)}>
           {isExpanded ? 'Encurtar' : 'Desencurtar'}
@@ -311,49 +358,54 @@ function PlatformTimePanel({ analysis, selectedTeam, onTeamChange }) {
           {analysis.teams.map((team) => <option key={team} value={team}>{team}</option>)}
         </select>
       </label>
+
       <div className="platform-card-grid">
-        {['1º Login', '1º Despacho', '1º Deslocamento'].map((label) => {
-          const values = analysis.platformRows.map((row) => row.values[label]?.value).filter((value) => value != null);
-          const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-          return (
-            <article className="mini-card" key={label}>
-              <span>{label}</span>
-              <strong>{formatNumber(avg)} min</strong>
-            </article>
-          );
-        })}
+        {averages.map(({ label, avg, meta, ok }) => (
+          <article className={`stat-tile ${ok ? 'is-ok' : 'is-bad'}`} key={label}>
+            <span className="stat-tile-label">{label}</span>
+            <strong className="stat-tile-value">{avg == null ? '—' : `${formatNumber(avg)}`}<small>min</small></strong>
+            <span className="stat-tile-meta">Média do período · meta {formatNumber(meta)}</span>
+          </article>
+        ))}
       </div>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Data/Hora</th>
-              <th>OS</th>
-              <th>Causa</th>
-              <th>1º Login</th>
-              <th>1º Despacho</th>
-              <th>1º Deslocamento</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analysis.platformRows.slice(0, 200).map((row) => (
-              <tr key={`platform-${row.id}`}>
-                <td>{row.data}</td>
-                <td>{row.os}</td>
-                <td>{row.causa}</td>
-                {['1º Login', '1º Despacho', '1º Deslocamento'].map((label) => {
-                  const item = row.values[label];
-                  return (
-                    <td key={label} className={item?.ok ? 'status-ok-text' : 'status-bad-text'}>
-                      {item?.value == null ? '-' : `${formatNumber(item.value)} min (${item.status})`}
-                    </td>
-                  );
-                })}
+
+      {daily.length === 0 ? (
+        <p className="collapsed-note">Sem registros de plataforma para esta equipe.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data-table platform-daily-table">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>OS no dia</th>
+                {PLATFORM_LABELS.map((label) => <th key={label}>{label}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {daily.map((day) => (
+                <tr key={`platform-day-${day.day}`}>
+                  <td className="date-cell">{day.day}</td>
+                  <td>{day.osCount}</td>
+                  {PLATFORM_LABELS.map((label) => {
+                    const item = day.values[label];
+                    return (
+                      <td key={label}>
+                        {item?.value == null ? (
+                          <span className="platform-empty">—</span>
+                        ) : (
+                          <span className={`platform-pill ${item.ok ? 'is-ok' : 'is-bad'}`}>
+                            {formatNumber(item.value)} min
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
         </>
       )}
     </section>

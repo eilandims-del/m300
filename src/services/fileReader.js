@@ -16,8 +16,12 @@ export async function readInputFile(file) {
   const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
   if (!rows.length) throw new Error('A planilha está vazia ou não contém cabeçalho.');
 
+  // Segunda leitura com valores crus (Date/serial) para preservar o horário real
+  // dos campos de data/hora, que a formatação do Excel pode reduzir só à data.
+  const typedRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: true });
+
   const { columns, map, warnings } = buildColumnMap(rows);
-  const normalizedRows = normalizeRows(rows, map);
+  const normalizedRows = normalizeRows(rows, map, typedRows);
   if (!normalizedRows.length) {
     throw new Error('Não foi possível identificar linhas válidas com equipe e data de referência.');
   }

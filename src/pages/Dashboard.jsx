@@ -83,18 +83,29 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
         </div>
       </section>
 
+      {/* Onde agir: leitura executiva antes dos detalhes. */}
+      <ReportPanel analytics={analytics} alerts={alerts} />
+
+      {/* Por quê: análise gráfica com prioridade clara. */}
       <Charts analytics={analytics} alerts={alerts} />
 
-      <Heatmap
-        teams={filteredHeatmapTeams}
-        allTeams={allTeams}
-        selectedTeams={heatmapTeams}
-        onTeamsChange={setHeatmapTeams}
-      />
-
+      {/* Detalhe: evidências por OS. */}
       <EvidenceTable rows={alerts.evidenceRows} />
-      <ReportPanel analytics={analytics} alerts={alerts} />
-      <TeamSummaryTable teams={analytics.teamSummaries} />
+
+      {/* Ferramentas de aprofundamento (drill-down), recolhidas por padrão. */}
+      <section className="dashboard-section">
+        <div className="section-header">
+          <h3 className="section-title">Ferramentas de análise</h3>
+          <p className="section-subtitle">Visões detalhadas para investigar equipe por equipe. Abra quando precisar.</p>
+        </div>
+        <Heatmap
+          teams={filteredHeatmapTeams}
+          allTeams={allTeams}
+          selectedTeams={heatmapTeams}
+          onTeamsChange={setHeatmapTeams}
+        />
+        <TeamSummaryTable teams={analytics.teamSummaries} />
+      </section>
 
       <section className="panel actions actions-single">
         <button className="btn-primary" disabled={pdfBusy} onClick={onGeneratePdf}>
@@ -109,8 +120,8 @@ function Charts({ analytics, alerts }) {
   const teams = analytics.teamSummaries;
   const byOsDia = [...teams].sort((a, b) => (b.kpis['OS Dia'] || 0) - (a.kpis['OS Dia'] || 0)).slice(0, 12);
   const byIntervalo = [...teams].sort((a, b) => (b.kpis['Intervalo'] || 0) - (a.kpis['Intervalo'] || 0)).slice(0, 12);
-  const dates = [...new Set(analytics.dailyTrends.map((row) => row.date))].sort(dateSort);
   const paretoAlerts = alerts.alertPareto;
+  const [showRankings, setShowRankings] = useState(false);
   const paretoOptions = useMemo(() => ({
     plugins: {
       tooltip: {
@@ -133,18 +144,20 @@ function Charts({ analytics, alerts }) {
     <section className="dashboard-section">
       <div className="section-header">
         <h3 className="section-title">Análise gráfica</h3>
+        <p className="section-subtitle">Comece pelo Pareto (o que mais pesa) e pelo OS × Utilização (produtividade). Os rankings por equipe ficam abaixo.</p>
       </div>
+
       <div className="charts-grid">
-        <ChartCard title="Ranking OS Dia" hint={getChartHint('Ranking OS Dia')} labels={byOsDia.map((t) => t.equipe)} datasets={[bar('OS Dia', byOsDia.map((t) => t.kpis['OS Dia']), 0)]} />
-        <ChartCard title="Ranking Utilização" hint={getChartHint('Ranking Utilização')} labels={teams.map((t) => t.equipe)} datasets={[bar('Utilização', teams.map((t) => t.kpis['Utilização']), 1)]} />
-        <ChartCard title="Ranking Retorno Base" hint={getChartHint('Ranking Retorno Base')} labels={teams.map((t) => t.equipe)} datasets={[bar('Retorno Base', teams.map((t) => t.kpis['Retorno Base']), 2)]} />
-        <ChartCard title="Ranking Intervalo" hint={getChartHint('Ranking Intervalo')} labels={byIntervalo.map((t) => t.equipe)} datasets={[bar('Intervalo', byIntervalo.map((t) => t.kpis['Intervalo']), 5)]} />
-        <TrendChart title="Tendência diária OS Dia" kpi="OS Dia" dates={dates} rows={analytics.dailyTrends} />
-        <TrendChart title="Tendência diária Utilização" kpi="Utilização" dates={dates} rows={analytics.dailyTrends} />
-        <TrendChart title="Tendência diária 1º Deslocamento" kpi="1º Desloc." dates={dates} rows={analytics.dailyTrends} />
-        <TrendChart title="Tendência diária Retorno Base" kpi="Retorno Base" dates={dates} rows={analytics.dailyTrends} />
-        <TrendChart title="Tendência diária Intervalo" kpi="Intervalo" dates={dates} rows={analytics.dailyTrends} />
         <ChartCard
+          className="chart-span-2"
+          title="Alertas mais recorrentes (Pareto)"
+          hint={getChartHint('Alertas mais recorrentes (Pareto)')}
+          labels={paretoAlerts.map((item) => formatAlertLabel(item.alerta))}
+          datasets={[bar('Alertas', paretoAlerts.map((item) => item.quantidade), 3)]}
+          options={paretoOptions}
+        />
+        <ChartCard
+          className="chart-span-2"
           title="OS x Utilização"
           hint={getChartHint('OS x Utilização')}
           type="scatter"
@@ -167,41 +180,38 @@ function Charts({ analytics, alerts }) {
             }
           }}
         />
-        <ChartCard
-          className="chart-span-2"
-          title="Alertas mais recorrentes (Pareto)"
-          hint={getChartHint('Alertas mais recorrentes (Pareto)')}
-          labels={paretoAlerts.map((item) => formatAlertLabel(item.alerta))}
-          datasets={[bar('Alertas', paretoAlerts.map((item) => item.quantidade), 3)]}
-          options={paretoOptions}
-        />
       </div>
-    </section>
-  );
-}
 
-function TrendChart({ title, dates, rows, kpi }) {
-  const values = dates.map((date) => {
-    const dayRows = rows.filter((row) => row.date === date && row[kpi] != null);
-    return dayRows.length ? dayRows.reduce((sum, row) => sum + row[kpi], 0) / dayRows.length : null;
-  });
-  return (
-    <ChartCard
-      title={title}
-      hint={getChartHint(title)}
-      type="line"
-      labels={dates}
-      datasets={[bar(kpi, values, 4)]}
-    />
+      <div className="section-subheader collapsible-header">
+        <div>
+          <h4 className="section-subtitle-strong">Rankings por equipe</h4>
+          <p className="section-subtitle">Comparação de cada equipe em OS Dia, Utilização, Retorno Base e Intervalo.</p>
+        </div>
+        <button type="button" className="collapse-toggle" onClick={() => setShowRankings((current) => !current)}>
+          {showRankings ? 'Encurtar' : 'Desencurtar'}
+        </button>
+      </div>
+      {showRankings ? (
+        <div className="charts-grid">
+          <ChartCard title="Ranking OS Dia" hint={getChartHint('Ranking OS Dia')} labels={byOsDia.map((t) => t.equipe)} datasets={[bar('OS Dia', byOsDia.map((t) => t.kpis['OS Dia']), 0)]} />
+          <ChartCard title="Ranking Utilização" hint={getChartHint('Ranking Utilização')} labels={teams.map((t) => t.equipe)} datasets={[bar('Utilização', teams.map((t) => t.kpis['Utilização']), 1)]} />
+          <ChartCard title="Ranking Retorno Base" hint={getChartHint('Ranking Retorno Base')} labels={teams.map((t) => t.equipe)} datasets={[bar('Retorno Base', teams.map((t) => t.kpis['Retorno Base']), 2)]} />
+          <ChartCard title="Ranking Intervalo" hint={getChartHint('Ranking Intervalo')} labels={byIntervalo.map((t) => t.equipe)} datasets={[bar('Intervalo', byIntervalo.map((t) => t.kpis['Intervalo']), 5)]} />
+        </div>
+      ) : (
+        <p className="collapsed-note">Rankings por equipe recolhidos. Clique em "Desencurtar" para comparar as equipes em cada KPI.</p>
+      )}
+    </section>
   );
 }
 
 function Heatmap({ teams, allTeams, selectedTeams, onTeamsChange }) {
   const kpiCount = HEATMAP_KPIS.length;
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <section className="panel heatmap-panel">
-      <div className="panel-toolbar">
+      <div className="section-header collapsible-header">
         <div>
           <h3>Mapa de Calor da Equipe × KPI</h3>
           <p className="section-subtitle heatmap-legend">
@@ -210,30 +220,39 @@ function Heatmap({ teams, allTeams, selectedTeams, onTeamsChange }) {
             <span className="legend-chip bad">Vermelho</span> fora da meta.
           </p>
         </div>
-        <div className="panel-filter">
-          <MultiSelect
-            label="Equipes"
-            options={allTeams}
-            selected={selectedTeams}
-            onChange={onTeamsChange}
-          />
-        </div>
+        <button type="button" className="collapse-toggle" onClick={() => setIsExpanded((current) => !current)}>
+          {isExpanded ? 'Encurtar' : 'Desencurtar'}
+        </button>
       </div>
 
-      <div className="heatmap-scroll">
-        <div className="heatmap" style={{ gridTemplateColumns: `minmax(160px, 1.4fr) repeat(${kpiCount}, minmax(88px, 1fr))` }}>
-          <span className="heatmap-corner">Equipe</span>
-          {HEATMAP_KPIS.map(({ kpi, meta, direction }) => (
-            <span key={kpi} className="heatmap-header">
-              <strong>{kpi}</strong>
-              <small>Meta {formatNumber(meta)}{direction === 'higher-is-better' ? '+' : ''}</small>
-            </span>
-          ))}
-          {teams.map((team) => (
-            <HeatmapRow key={team.equipe} team={team} />
-          ))}
-        </div>
-      </div>
+      {!isExpanded ? (
+        <p className="collapsed-note">Mapa de calor recolhido. Clique em "Desencurtar" para comparar todas as equipes por KPI.</p>
+      ) : (
+        <>
+          <div className="panel-filter heatmap-filter">
+            <MultiSelect
+              label="Equipes"
+              options={allTeams}
+              selected={selectedTeams}
+              onChange={onTeamsChange}
+            />
+          </div>
+          <div className="heatmap-scroll">
+            <div className="heatmap" style={{ gridTemplateColumns: `minmax(160px, 1.4fr) repeat(${kpiCount}, minmax(88px, 1fr))` }}>
+              <span className="heatmap-corner">Equipe</span>
+              {HEATMAP_KPIS.map(({ kpi, meta, direction }) => (
+                <span key={kpi} className="heatmap-header">
+                  <strong>{kpi}</strong>
+                  <small>Meta {formatNumber(meta)}{direction === 'higher-is-better' ? '+' : ''}</small>
+                </span>
+              ))}
+              {teams.map((team) => (
+                <HeatmapRow key={team.equipe} team={team} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -259,10 +278,4 @@ function bar(label, data, colorIndex) {
     backgroundColor: `${palette[colorIndex % palette.length]}aa`,
     tension: 0.3
   };
-}
-
-function dateSort(a, b) {
-  const [ad, am, ay] = a.split('/').map(Number);
-  const [bd, bm, by] = b.split('/').map(Number);
-  return new Date(ay, am - 1, ad) - new Date(by, bm - 1, bd);
 }

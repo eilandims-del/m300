@@ -79,6 +79,27 @@ export const REQUIRED_FOR_KPI = {
   Intervalo: ['inicioIntervalo', 'fimIntervalo', 'intervalo']
 };
 
+// Campos de data/hora. Quando a planilha é lida com formatação (raw:false), o
+// Excel pode devolver apenas a data (perdendo o horário). Por isso preferimos o
+// valor "cru" (Date/serial) desses campos, que preserva o horário real.
+const dateTimeFields = [
+  'dataReferencia',
+  'inicioCalendario',
+  'logIn',
+  'logOff',
+  'logInCorrigido',
+  'logOffCorrigido',
+  'inicioIntervalo',
+  'fimIntervalo',
+  'despachada',
+  'aCaminho',
+  'noLocal',
+  'liberada',
+  'horaPrimeiroDeslocamento',
+  'horaPrimeiroDespacho',
+  'horaUltimaOrdem'
+];
+
 const numberFields = [
   'htOrdem',
   'trOrdem',
@@ -125,12 +146,24 @@ function fallbackText(kpi, field) {
   return `O KPI ${kpi} pode ficar indisponível ou parcial sem ${field}.`;
 }
 
-export function normalizeRows(rows, columnMap) {
+export function normalizeRows(rows, columnMap, typedRows = null) {
   return rows
     .map((row, index) => {
       const item = { id: index + 1, raw: row };
+      const typedRow = typedRows?.[index];
       for (const [field, column] of Object.entries(columnMap)) {
         item[field] = column ? row[column] : null;
+      }
+      // Recupera o valor cru (com horário preservado) dos campos de data/hora.
+      if (typedRow) {
+        for (const field of dateTimeFields) {
+          const column = columnMap[field];
+          if (!column) continue;
+          const typedValue = typedRow[column];
+          if (typedValue instanceof Date || typeof typedValue === 'number') {
+            item[field] = typedValue;
+          }
+        }
       }
       for (const field of numberFields) item[field] = parseNumber(item[field]);
 

@@ -251,7 +251,7 @@ export function EvidenceTable({ rows }) {
 
             <p className="section-subtitle">
 
-              Clique em uma linha com alerta para ver detalhes. OS em destaque = primeira do dia da equipe.
+              Linha do tempo por equipe: cada dia começa pela 1ª OS (em destaque). Clique numa linha com alerta para ver detalhes.
 
             </p>
 
@@ -280,6 +280,18 @@ export function EvidenceTable({ rows }) {
           <table className="data-table evidence-table">
 
             <thead>
+
+              <tr className="evidence-group-row">
+
+                <th colSpan={4}>Identificação</th>
+
+                <th colSpan={5} className="evidence-group-timeline">Linha do tempo da OS</th>
+
+                <th colSpan={4} className="evidence-group-tempos">Tempos (min)</th>
+
+                <th aria-hidden="true"></th>
+
+              </tr>
 
               <tr>
 
@@ -369,7 +381,7 @@ export function EvidenceTable({ rows }) {
 
                     <td className="cause-cell">{row.causa}</td>
 
-                    <td className="time-cell">{formatTime(row.inicioCalendario)}</td>
+                    <td className="time-cell time-cell-start">{formatTime(row.inicioCalendario)}</td>
 
                     <td className="time-cell">{formatTime(row.despachada)}</td>
 
@@ -379,13 +391,13 @@ export function EvidenceTable({ rows }) {
 
                     <td className="time-cell">{formatTime(row.liberada)}</td>
 
-                    <td>{formatNumber(row.trOrdem)}</td>
+                    <td className="num-cell num-cell-start">{formatNumber(row.trOrdem)}</td>
 
-                    <td>{formatNumber(row.tlOrdem)}</td>
+                    <td className="num-cell">{formatNumber(row.tlOrdem)}</td>
 
-                    <td>{formatNumber(row.hdTotal)}</td>
+                    <td className="num-cell">{formatNumber(row.hdTotal)}</td>
 
-                    <td>{formatNumber(row.tempoPadrao)}</td>
+                    <td className="num-cell">{formatNumber(row.tempoPadrao)}</td>
 
                     <td className="evidence-action-cell">
 
@@ -715,13 +727,19 @@ function scoreCellStyle(score) {
 
 function compareEvidenceDates(a, b, direction) {
 
-  const timeA = evidenceDateTimestamp(a);
+  const dayDiff = evidenceDateTimestamp(a) - evidenceDateTimestamp(b);
 
-  const timeB = evidenceDateTimestamp(b);
+  if (dayDiff !== 0) return direction === 'asc' ? dayDiff : -dayDiff;
 
-  const diff = timeA - timeB;
+  // Mesmo dia: agrupa por equipe e segue a linha do tempo do turno,
 
-  return direction === 'asc' ? diff : -diff;
+  // sempre começando pela 1ª OS do dia (ordem cronológica crescente).
+
+  const teamDiff = String(a.equipe || '').localeCompare(String(b.equipe || ''));
+
+  if (teamDiff !== 0) return teamDiff;
+
+  return orderTimestamp(a) - orderTimestamp(b);
 
 }
 
@@ -801,13 +819,25 @@ function orderTimestamp(row) {
 
 function formatTime(value) {
 
-  const text = String(value || '').trim();
+  if (value == null || value === '') return '—';
 
-  if (!text) return '—';
+  const date = parseDateTimeBr(value);
+
+  if (date) {
+
+    const hh = String(date.getHours()).padStart(2, '0');
+
+    const mm = String(date.getMinutes()).padStart(2, '0');
+
+    return `${hh}:${mm}`;
+
+  }
+
+  const text = String(value).trim();
 
   const match = text.match(/(\d{1,2}:\d{2})/);
 
-  return match ? match[1] : text.length > 8 ? text.slice(-8) : text;
+  return match ? match[1] : '—';
 
 }
 

@@ -21,7 +21,9 @@ function calculateTeam(team, rows) {
 
   const kpis = {
     'OS Dia': dates.size ? os.size / dates.size : null,
-    'Eficiência': ratioPercent(sum(rows.map((row) => row.tempoPadraoTotalCal)), sum(rows.map((row) => row.trTotalCal))),
+    // Os totais *_TOTAL_CAL são diários (repetidos por OS); dedupe por equipe+dia
+    // evita ponderar cada dia pela quantidade de OS, igual à Utilização.
+    'Eficiência': ratioPercent(sum(dedupe.map((row) => row.tempoPadraoTotalCal)), sum(dedupe.map((row) => row.trTotalCal))),
     'Utilização': ratioPercent(sum(dedupe.map((row) => row.htTotal)), sum(dedupe.map((row) => row.hdTotal))),
     'TME IMP': calculateTmeImp(rows),
     '1º Login': averagePrimeiroLogin(dedupe),
@@ -74,13 +76,25 @@ function calculateFirstDesloc(rows) {
 function calculateIntervalo(rows) {
   const byDate = groupBy(rows, (row) => row.dataReferenciaKey);
   const dailyTotals = [...byDate.values()]
-    .map((dayRows) => {
-      const durations = dayRows.map((row) => intervalMinutes(row)).filter((value) => value != null && value > 0);
-      return durations.length ? sum(durations) : null;
-    })
+    .map((dayRows) => dailyIntervalMinutes(dayRows))
     .filter((value) => value != null);
 
   return dailyTotals.length ? average(dailyTotals) : null;
+}
+
+// A equipe faz um único intervalo por dia, mas o valor costuma vir repetido em
+// cada OS daquele dia. Por isso deduplicamos por assinatura (início/fim/valor)
+// para não somar o mesmo intervalo várias vezes.
+function dailyIntervalMinutes(dayRows) {
+  const unique = new Map();
+  for (const row of dayRows) {
+    const minutes = intervalMinutes(row);
+    if (minutes == null || minutes <= 0) continue;
+    const signature = `${row.inicioIntervalo ?? ''}|${row.fimIntervalo ?? ''}|${row.intervalo ?? ''}`;
+    if (!unique.has(signature)) unique.set(signature, minutes);
+  }
+  if (!unique.size) return null;
+  return sum([...unique.values()]);
 }
 
 function intervalMinutes(row) {
