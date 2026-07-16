@@ -1,6 +1,6 @@
 import { resolvePrimeiroDesloc, resolvePrimeiroDespacho, resolvePrimeiroLogin } from './platformKpis.js';
 import { getThreshold, isKpiOnTarget } from '../config/kpiThresholds.js';
-import { formatNumber, minutesBetween, parseDateTimeBr } from '../utils/numberDate.js';
+import { formatDateTimeBr, formatNumber, minutesBetween, parseDateTimeBr } from '../utils/numberDate.js';
 
 const PLATFORM_KPIS = [
   { key: 'primeiroLoginCorrigido', kpi: '1º Login', label: '1º Login' },
@@ -40,7 +40,7 @@ export function buildEvolutionTeamAnalysis(rows, selectedTeam) {
     return {
       id: row.id,
       os: row.nrOrdem || '-',
-      data: row.occurrenceDate ? row.occurrenceDate.toLocaleString('pt-BR') : row.dataReferenciaKey,
+      data: formatDateTimeBr(row.occurrenceDate) || row.dataReferenciaKey,
       causa: row.causa || 'Sem causa informada',
       isFirstOfDay,
       minutosDesdeAnterior,

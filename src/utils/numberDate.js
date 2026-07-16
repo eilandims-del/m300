@@ -21,28 +21,104 @@ export function parseNumber(value) {
 }
 
 export function parseDateTimeBr(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (value == null || value === '') return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return null;
-    // Serial do Excel -> hora de parede (dia/mês/ano/hora reais da planilha),
-    // extraída em UTC e remontada em horário local. Assim o valor é idêntico
-    // em qualquer navegador ou computador, sem depender do fuso.
-    const utcMs = Date.UTC(1899, 11, 30) + Math.round(value * 86400) * 1000;
-    const u = new Date(utcMs);
-    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
+
+    // Serial do Excel -> hora de parede. O valor é desmontado em UTC e
+    // remontado no horário local para impedir deslocamento por fuso horário.
+    const utcMs = Date.UTC(1899, 11, 30) + Math.round(value * 86_400_000);
+    const excelDate = new Date(utcMs);
+    return buildLocalDate(
+      excelDate.getUTCFullYear(),
+      excelDate.getUTCMonth() + 1,
+      excelDate.getUTCDate(),
+      excelDate.getUTCHours(),
+      excelDate.getUTCMinutes(),
+      excelDate.getUTCSeconds(),
+      excelDate.getUTCMilliseconds()
+    );
   }
 
-  const text = String(value).trim();
-  const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (!match) {
-    const parsed = new Date(text);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const text = String(value)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}),\s*/, '$1 ');
+
+  if (!text) return null;
+
+  // Regra de negócio: datas com barras/pontos são sempre DIA/MÊS/ANO.
+  // Aceita segundos, milissegundos, AM/PM e sufixo de fuso sem delegar a
+  // interpretação ambígua ao construtor nativo Date.
+  const brMatch = text.match(
+    /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3}))?)?\s*(AM|PM)?)?(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?$/i
+  );
+  if (brMatch) {
+    const [, day, month, year, hour = '0', minute = '0', second = '0', fraction = '0', meridiem = ''] = brMatch;
+    return dateFromParts({ day, month, year, hour, minute, second, fraction, meridiem });
   }
 
-  const [, dd, mm, yyyy, hh = '0', min = '0', ss = '0'] = match;
-  const fullYear = yyyy.length === 2 ? `20${yyyy}` : yyyy;
-  return new Date(Number(fullYear), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss));
+  // Formato ISO explícito: ANO-MÊS-DIA. Também é montado como hora de parede,
+  // mantendo o horário visível na planilha e evitando mudança por timezone.
+  const isoMatch = text.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3}))?)?\s*(AM|PM)?)?(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?$/i
+  );
+  if (isoMatch) {
+    const [, year, month, day, hour = '0', minute = '0', second = '0', fraction = '0', meridiem = ''] = isoMatch;
+    return dateFromParts({ day, month, year, hour, minute, second, fraction, meridiem });
+  }
+
+  // Não usar new Date(text) aqui: strings como 12/06/2026 podem ser
+  // interpretadas como MM/DD/YYYY e inverter junho/dezembro silenciosamente.
+  return null;
+}
+
+function dateFromParts({ day, month, year, hour, minute, second, fraction, meridiem }) {
+  const fullYear = Number(String(year).length === 2 ? `20${year}` : year);
+  let parsedHour = Number(hour);
+  const normalizedMeridiem = String(meridiem || '').toUpperCase();
+
+  if (normalizedMeridiem) {
+    if (parsedHour < 1 || parsedHour > 12) return null;
+    if (normalizedMeridiem === 'AM') parsedHour %= 12;
+    if (normalizedMeridiem === 'PM') parsedHour = (parsedHour % 12) + 12;
+  }
+
+  const milliseconds = Number(String(fraction || '0').padEnd(3, '0').slice(0, 3));
+  return buildLocalDate(
+    fullYear,
+    Number(month),
+    Number(day),
+    parsedHour,
+    Number(minute),
+    Number(second),
+    milliseconds
+  );
+}
+
+function buildLocalDate(year, month, day, hour = 0, minute = 0, second = 0, millisecond = 0) {
+  const values = [year, month, day, hour, minute, second, millisecond];
+  if (values.some((item) => !Number.isInteger(item))) return null;
+  if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
+  if (millisecond < 0 || millisecond > 999) return null;
+
+  const date = new Date(year, month - 1, day, hour, minute, second, millisecond);
+  const isExact =
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day &&
+    date.getHours() === hour &&
+    date.getMinutes() === minute &&
+    date.getSeconds() === second &&
+    date.getMilliseconds() === millisecond;
+
+  return isExact ? date : null;
 }
 
 export function minutesBetween(later, earlier) {
@@ -58,6 +134,17 @@ export function formatDateKey(value) {
   const dd = String(date.getDate()).padStart(2, '0');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   return `${dd}/${mm}/${date.getFullYear()}`;
+}
+
+export function formatDateTimeBr(value) {
+  const date = parseDateTimeBr(value);
+  if (!date) return '';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
 export function formatNumber(value, decimals = 1) {
