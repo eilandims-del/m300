@@ -3,9 +3,12 @@ import { getKpiStatus, getThreshold } from '../config/kpiThresholds.js';
 
 const ICONS = {
   'OS Dia': '📋',
+  Produtividade: '📈',
   'Eficiência': '⚙️',
   'Utilização': '⏱️',
-  'TME IMP': '🛠️',
+  'Task Time': '🎯',
+  'TMR Sec': '📞',
+  'TMR Imp': '🛠️',
   '1º Login': '🔑',
   '1º Despacho': '📨',
   '1º Desloc.': '🚚',

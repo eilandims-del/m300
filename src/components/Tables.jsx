@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { KPI_THRESHOLDS } from '../config/kpiThresholds.js';
+import { KPI_THRESHOLDS, MAX_TEAM_SCORE, formatClassificacao } from '../config/kpiThresholds.js';
+
+import { SCORING_GUIDE, SCORING_TOTAL } from '../config/kpiDisplay.js';
 
 import { describeAlert, formatAlertLabel, groupAlertCounts } from '../services/alerts.js';
 
 import { groupBy } from '../services/kpiCalculator.js';
+
+import { generateEvidencePdf } from '../services/pdfService.js';
 
 import { MultiSelect } from './MultiSelect.jsx';
 
@@ -12,9 +16,9 @@ import { formatNumber, parseDateTimeBr } from '../utils/numberDate.js';
 
 
 
-const SUMMARY_KPIS = KPI_THRESHOLDS.filter(({ kpi }) => kpi !== 'TME IMP');
+const SUMMARY_KPIS = KPI_THRESHOLDS;
 
-const MAX_TEAM_SCORE = KPI_THRESHOLDS.reduce((sum, item) => sum + item.maxScore, 0);
+const EVIDENCE_PAGE_SIZE = 300;
 
 
 
@@ -36,7 +40,9 @@ const EVIDENCE_METRIC_HEADERS = [
 
   { label: 'HD', hint: 'Horas Disponíveis do dia da equipe (minutos)' },
 
-  { label: 'T. Padrão', hint: 'Tempo padrão previsto para a OS (minutos)' }
+  { label: 'T. Padrão', hint: 'Tempo padrão previsto para a OS (minutos)' },
+
+  { label: 'TR Imp', hint: 'TR de ordem improdutiva sem solução (minutos)' }
 
 ];
 
@@ -44,6 +50,8 @@ const EVIDENCE_METRIC_HEADERS = [
 
 export function TeamSummaryTable({ teams }) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const [showScoring, setShowScoring] = useState(false);
 
   const rankedTeams = useMemo(
 
@@ -65,17 +73,39 @@ export function TeamSummaryTable({ teams }) {
 
           <h3>Tabela resumo por equipe</h3>
 
-          <p className="section-subtitle">Ranking ordenado pelo score geral, do maior para o menor.</p>
+          <p className="section-subtitle">Ranking ordenado pela classificação Spotfire (soma das pontuações), do maior para o menor.</p>
 
         </div>
 
-        <button type="button" className="collapse-toggle" onClick={() => setIsExpanded((current) => !current)}>
+        <div className="header-actions">
 
-          {isExpanded ? 'Encurtar' : 'Desencurtar'}
+          <button
 
-        </button>
+            type="button"
+
+            className="info-chip"
+
+            onClick={() => setShowScoring(true)}
+
+            title="Entenda como cada indicador é calculado e pontuado"
+
+          >
+
+            <span aria-hidden="true">ⓘ</span> Como o score é calculado
+
+          </button>
+
+          <button type="button" className="collapse-toggle" onClick={() => setIsExpanded((current) => !current)}>
+
+            {isExpanded ? 'Encurtar' : 'Desencurtar'}
+
+          </button>
+
+        </div>
 
       </div>
+
+      {showScoring && <ScoringGuideModal onClose={() => setShowScoring(false)} />}
 
       {!isExpanded ? (
 
@@ -95,17 +125,11 @@ export function TeamSummaryTable({ teams }) {
 
               <th>Equipe</th>
 
-              <th>Polo</th>
-
               <th>Base</th>
-
-              <th>Tipo</th>
 
               {SUMMARY_KPIS.map(({ kpi }) => <th key={kpi}>{kpi}</th>)}
 
-              <th>KPIs fora</th>
-
-              <th>Score geral</th>
+              <th>Classificação</th>
 
             </tr>
 
@@ -121,19 +145,13 @@ export function TeamSummaryTable({ teams }) {
 
                 <td className="team-cell">{team.equipe}</td>
 
-                <td>{team.polo}</td>
-
                 <td>{team.base}</td>
-
-                <td>{team.tipo}</td>
 
                 {SUMMARY_KPIS.map(({ kpi }) => <td key={kpi}>{formatNumber(team.kpis[kpi])}</td>)}
 
-                <td>{team.outOfTarget.filter((kpi) => kpi !== 'TME IMP').length}</td>
-
                 <td className="score-cell" style={scoreCellStyle(team.scoreGeral)}>
 
-                  {formatNumber(team.scoreGeral)}
+                  {formatClassificacao(team.scoreGeral)}
 
                 </td>
 
@@ -173,6 +191,10 @@ export function EvidenceTable({ rows }) {
 
   const [dateSort, setDateSort] = useState('desc');
 
+  const [visibleCount, setVisibleCount] = useState(EVIDENCE_PAGE_SIZE);
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+
 
 
   const firstOsIds = useMemo(() => buildFirstOsOfDayIds(rows), [rows]);
@@ -191,19 +213,53 @@ export function EvidenceTable({ rows }) {
 
 
 
-  const displayRows = useMemo(() => {
+  const sortedRows = useMemo(
 
-    const sorted = [...filteredRows].sort((a, b) => compareEvidenceDates(a, b, dateSort));
+    () => [...filteredRows].sort((a, b) => compareEvidenceDates(a, b, dateSort)),
 
-    return sorted.slice(0, 400);
+    [filteredRows, dateSort]
 
-  }, [filteredRows, dateSort]);
+  );
+
+  const displayRows = useMemo(() => sortedRows.slice(0, visibleCount), [sortedRows, visibleCount]);
+
+  const totalRows = sortedRows.length;
+
+
+
+  useEffect(() => {
+
+    setVisibleCount(EVIDENCE_PAGE_SIZE);
+
+  }, [sortedRows]);
 
 
 
   function toggleDateSort() {
 
     setDateSort((current) => (current === 'asc' ? 'desc' : 'asc'));
+
+  }
+
+
+
+  async function handleExportPdf() {
+
+    if (!sortedRows.length || pdfBusy) return;
+
+    setPdfBusy(true);
+
+    try {
+
+      await new Promise((resolve) => setTimeout(resolve, 40));
+
+      generateEvidencePdf(sortedRows, { teams: selectedTeams });
+
+    } finally {
+
+      setPdfBusy(false);
+
+    }
 
   }
 
@@ -251,25 +307,49 @@ export function EvidenceTable({ rows }) {
 
             <p className="section-subtitle">
 
-              Linha do tempo por equipe: cada dia começa pela 1ª OS (em destaque). Clique numa linha com alerta para ver detalhes.
+              {formatNumber(totalRows, 0)} incidência{totalRows === 1 ? '' : 's'} no recorte atual
+
+              {totalRows > displayRows.length ? ` · mostrando ${formatNumber(displayRows.length, 0)}` : ''}.
+
+              Linha do tempo por equipe: cada dia começa pela 1ª OS (em destaque).
 
             </p>
 
           </div>
 
-          <div className="panel-filter">
+          <div className="panel-tools">
 
-            <MultiSelect
+            <button
 
-              label="Equipes"
+              type="button"
 
-              options={teamOptions}
+              className="btn-secondary"
 
-              selected={selectedTeams}
+              onClick={handleExportPdf}
 
-              onChange={setSelectedTeams}
+              disabled={pdfBusy || !totalRows}
 
-            />
+            >
+
+              {pdfBusy ? 'Gerando PDF...' : 'Exportar PDF'}
+
+            </button>
+
+            <div className="panel-filter">
+
+              <MultiSelect
+
+                label="Equipes"
+
+                options={teamOptions}
+
+                selected={selectedTeams}
+
+                onChange={setSelectedTeams}
+
+              />
+
+            </div>
 
           </div>
 
@@ -287,7 +367,7 @@ export function EvidenceTable({ rows }) {
 
                 <th colSpan={5} className="evidence-group-timeline">Linha do tempo da OS</th>
 
-                <th colSpan={4} className="evidence-group-tempos">Tempos (min)</th>
+                <th colSpan={5} className="evidence-group-tempos">Tempos (min)</th>
 
                 <th aria-hidden="true"></th>
 
@@ -399,6 +479,8 @@ export function EvidenceTable({ rows }) {
 
                     <td className="num-cell">{formatNumber(row.tempoPadrao)}</td>
 
+                    <td className="num-cell">{row.trOrdemImpSs > 0 ? formatNumber(row.trOrdemImpSs) : '—'}</td>
+
                     <td className="evidence-action-cell">
 
                       {hasDetails ? (
@@ -429,6 +511,48 @@ export function EvidenceTable({ rows }) {
 
         </div>
 
+        {totalRows > displayRows.length && (
+
+          <div className="evidence-loadmore">
+
+            <span>Mostrando {formatNumber(displayRows.length, 0)} de {formatNumber(totalRows, 0)} incidências.</span>
+
+            <div className="evidence-loadmore-actions">
+
+              <button
+
+                type="button"
+
+                className="btn-secondary"
+
+                onClick={() => setVisibleCount((current) => current + EVIDENCE_PAGE_SIZE)}
+
+              >
+
+                Carregar mais {EVIDENCE_PAGE_SIZE}
+
+              </button>
+
+              <button
+
+                type="button"
+
+                className="btn-secondary"
+
+                onClick={() => setVisibleCount(totalRows)}
+
+              >
+
+                Carregar todas
+
+              </button>
+
+            </div>
+
+          </div>
+
+        )}
+
       </section>
 
 
@@ -440,6 +564,156 @@ export function EvidenceTable({ rows }) {
       )}
 
     </>
+
+  );
+
+}
+
+
+
+function ScoringGuideModal({ onClose }) {
+
+  useEffect(() => {
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    function onKeyDown(event) {
+
+      if (event.key === 'Escape') onClose();
+
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+
+      document.body.style.overflow = previousOverflow;
+
+      document.removeEventListener('keydown', onKeyDown);
+
+    };
+
+  }, [onClose]);
+
+
+
+  return (
+
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+
+      <div
+
+        className="modal-card scoring-modal"
+
+        role="dialog"
+
+        aria-modal="true"
+
+        aria-labelledby="scoring-modal-title"
+
+        onClick={(event) => event.stopPropagation()}
+
+      >
+
+        <header className="modal-header">
+
+          <div>
+
+            <p className="modal-eyebrow">Como funciona a pontuação</p>
+
+            <h3 id="scoring-modal-title">Cálculo dos indicadores e do score</h3>
+
+            <p className="modal-subtitle">
+
+              Cada indicador vale um máximo de pontos e cresce de forma linear dentro de uma faixa.
+
+              Score máximo ≈ {SCORING_TOTAL} pts.
+
+            </p>
+
+          </div>
+
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">×</button>
+
+        </header>
+
+
+
+        <div className="modal-body">
+
+          {SCORING_GUIDE.map((section) => (
+
+            <section className="modal-section" key={section.group}>
+
+              <h4>{section.group}</h4>
+
+              <div className="scoring-grid">
+
+                {section.indicators.map((item) => (
+
+                  <article className="scoring-card" key={item.kpi}>
+
+                    <div className="scoring-card-head">
+
+                      <strong>{item.kpi}</strong>
+
+                      <span className={`scoring-weight${item.max ? '' : ' is-info'}`}>
+
+                        {item.max ? `${formatNumber(item.max)} pts` : 'informativo'}
+
+                      </span>
+
+                    </div>
+
+                    <code className="scoring-formula">{item.formula}</code>
+
+                    <div className="scoring-meta">
+
+                      <span>Faixa: {item.range}</span>
+
+                      <span>{item.better === 'higher' ? 'Maior é melhor ↑' : 'Menor é melhor ↓'}</span>
+
+                    </div>
+
+                    <p className="scoring-note">{item.note}</p>
+
+                  </article>
+
+                ))}
+
+              </div>
+
+            </section>
+
+          ))}
+
+
+
+          <section className="modal-section">
+
+            <h4>Lógica das faixas</h4>
+
+            <ul className="scoring-logic">
+
+              <li><strong>Abaixo do mínimo:</strong> 0 ponto — desempenho insuficiente.</li>
+
+              <li><strong>Dentro da faixa:</strong> pontos sobem (ou descem) de forma proporcional ao valor.</li>
+
+              <li><strong>Acima do teto:</strong> pontuação máxima travada, sem bônus adicional.</li>
+
+              <li>Para indicadores de tempo (TMR, 1º Login, 1º Desloc., Retorno Base) a lógica é inversa: quanto menor o tempo, maior a pontuação.</li>
+
+            </ul>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </div>
 
   );
 

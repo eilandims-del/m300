@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { PRIMARY_KPIS, getKpiStatus, getThreshold, isKpiOnTarget } from '../config/kpiThresholds.js';
 import { RECOMMENDATIONS, formatAlertLabel } from './alerts.js';
-import { formatNumber } from '../utils/numberDate.js';
+import { formatNumber, parseDateTimeBr } from '../utils/numberDate.js';
 
 const MARGIN = 40;
 const DARK = [15, 23, 42];
@@ -17,6 +17,9 @@ const ACTION_BY_KPI = {
   'OS Dia': 'Revisar fila de OS, despacho e tempo parado durante o dia.',
   'Eficiência': 'Conferir tempo realizado e tempo padrão das OS com maior desvio.',
   'Utilização': 'Reduzir ociosidade e melhorar distribuição de OS entre as equipes.',
+  'Task Time': 'Aumentar o tempo efetivo de execução dentro das horas disponíveis.',
+  'TMR Sec': 'Reduzir o tempo de resposta das ordens secundárias.',
+  'TMR Imp': 'Agilizar o tratamento das ordens improdutivas sem solução.',
   '1º Login': 'Reforçar login como primeira ação no início da jornada.',
   '1º Despacho': 'Acelerar o envio da primeira OS após o início da jornada.',
   '1º Desloc.': 'Orientar saída rápida e registro de "A Caminho" após o despacho.',
@@ -319,6 +322,141 @@ function addFooters(doc) {
 
 function setColor(doc, rgb) {
   doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+}
+
+// PDF detalhado da Tabela de evidências (uma linha por incidência do recorte).
+const EVIDENCE_COLUMNS = [
+  { key: 'data', label: 'Data', w: 52 },
+  { key: 'equipe', label: 'Equipe', w: 92 },
+  { key: 'os', label: 'OS', w: 58 },
+  { key: 'causa', label: 'Causa', w: 120, wrap: true },
+  { key: 'inicio', label: 'Início', w: 40 },
+  { key: 'despachada', label: 'Despach.', w: 44 },
+  { key: 'aCaminho', label: 'A Cam.', w: 40 },
+  { key: 'noLocal', label: 'No Local', w: 44 },
+  { key: 'liberada', label: 'Liberada', w: 44 },
+  { key: 'tr', label: 'TR', w: 32, align: 'right' },
+  { key: 'tl', label: 'TL', w: 32, align: 'right' },
+  { key: 'alertas', label: 'Alertas', w: 180, wrap: true }
+];
+
+export function generateEvidencePdf(rows, { teams = [] } = {}) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+  const page = { width: doc.internal.pageSize.getWidth(), height: doc.internal.pageSize.getHeight() };
+  const margin = 32;
+  const bottom = page.height - 34;
+
+  const cols = [];
+  let x = margin;
+  for (const column of EVIDENCE_COLUMNS) {
+    cols.push({ ...column, x });
+    x += column.w;
+  }
+
+  const scope = teams.length ? teams.join(', ') : 'Todas as equipes';
+  const subtitle = `${formatNumber(rows.length, 0)} incidências · ${scope}`;
+
+  let y = drawEvidenceHeader(doc, page, subtitle);
+
+  doc.setFontSize(7.5);
+  rows.forEach((row, index) => {
+    const values = evidenceRowValues(row);
+    const cellLines = cols.map((column) =>
+      column.wrap ? doc.splitTextToSize(values[column.key], column.w - 6) : [values[column.key]]
+    );
+    const rowHeight = Math.max(...cellLines.map((lines) => lines.length)) * 9 + 6;
+
+    if (y + rowHeight > bottom) {
+      y = drawEvidenceHeader(doc, page, subtitle);
+      doc.setFontSize(7.5);
+    }
+
+    if (index % 2 === 1) {
+      doc.setFillColor(244, 247, 251);
+      doc.rect(margin, y - 8, page.width - margin * 2, rowHeight, 'F');
+    }
+
+    setColor(doc, DARK);
+    doc.setFont('helvetica', 'normal');
+    cols.forEach((column, columnIndex) => {
+      const lines = cellLines[columnIndex];
+      const align = column.align === 'right' ? 'right' : 'left';
+      const posX = align === 'right' ? column.x + column.w - 6 : column.x + 2;
+      doc.text(lines, posX, y, { align });
+    });
+    y += rowHeight;
+  });
+
+  addEvidenceFooters(doc, page);
+  doc.save('Scanner M300 - Evidências.pdf');
+}
+
+function drawEvidenceHeader(doc, page, subtitle) {
+  const margin = 32;
+  doc.setFillColor(16, 42, 67);
+  doc.rect(0, 0, page.width, 60, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('Scanner M300 - Evidências por OS', margin, 30);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(167, 243, 208);
+  doc.text(subtitle, margin, 47);
+
+  const y = 78;
+  doc.setFillColor(...LIGHT_BLUE);
+  doc.rect(margin, y - 11, page.width - margin * 2, 18, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setColor(doc, BLUE);
+  let x = margin;
+  for (const column of EVIDENCE_COLUMNS) {
+    const align = column.align === 'right' ? 'right' : 'left';
+    const posX = align === 'right' ? x + column.w - 6 : x + 2;
+    doc.text(column.label, posX, y, { align });
+    x += column.w;
+  }
+  doc.setFont('helvetica', 'normal');
+  return y + 16;
+}
+
+function addEvidenceFooters(doc, page) {
+  const total = doc.getNumberOfPages();
+  for (let pageNumber = 1; pageNumber <= total; pageNumber += 1) {
+    doc.setPage(pageNumber);
+    setColor(doc, MUTED);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Scanner M300 - Evidências · Página ${pageNumber} de ${total}`, 32, page.height - 16);
+  }
+}
+
+function evidenceRowValues(row) {
+  return {
+    data: row.dataReferenciaKey || '-',
+    equipe: row.equipe || '-',
+    os: row.nrOrdem || '-',
+    causa: row.causa ? String(row.causa) : '—',
+    inicio: pdfTime(row.inicioCalendario),
+    despachada: pdfTime(row.despachada),
+    aCaminho: pdfTime(row.aCaminho),
+    noLocal: pdfTime(row.noLocal),
+    liberada: pdfTime(row.liberada),
+    tr: row.trOrdem != null ? formatNumber(row.trOrdem, 0) : '-',
+    tl: row.tlOrdem != null ? formatNumber(row.tlOrdem, 0) : '-',
+    alertas: row.alerts?.length ? row.alerts.map((code) => formatAlertLabel(code)).join(', ') : '—'
+  };
+}
+
+function pdfTime(value) {
+  if (value == null || value === '') return '—';
+  const date = parseDateTimeBr(value);
+  if (date) {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
+  const match = String(value).match(/(\d{1,2}:\d{2})/);
+  return match ? match[1] : '—';
 }
 
 function visibleOutOfTarget(team) {

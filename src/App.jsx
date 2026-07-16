@@ -9,6 +9,7 @@ import { applyFilters, createEmptyFilters, deriveChainedFilterOptions, sanitizeF
 import { buildAnalytics } from './services/kpiCalculator.js';
 import { buildAlerts } from './services/alerts.js';
 import { generateExecutivePdf } from './services/pdfService.js';
+import { clearAppCaches } from './utils/cacheGuard.js';
 
 export default function App() {
   const [dataset, setDataset] = useState(null);
@@ -56,6 +57,15 @@ export default function App() {
     }
   }, []);
 
+  const handleClearData = useCallback(async () => {
+    setDataset(null);
+    setMainName('');
+    setFilters(createEmptyFilters());
+    setView('dashboard');
+    setStatus({ loading: false, error: '' });
+    await clearAppCaches();
+  }, []);
+
   const handleGeneratePdf = useCallback(async () => {
     if (!result) return;
     setPdfBusy(true);
@@ -87,6 +97,7 @@ export default function App() {
           onMainFile={handleMainFile}
           loading={status.loading}
           mainName={mainName}
+          onClear={handleClearData}
         />
       </header>
 

@@ -78,7 +78,7 @@ export function buildAlerts(rows, teamSummaries) {
   const globalTl = average(rows.map((row) => row.tlOrdem).filter((value) => value > 0)) || 0;
   const evidence = rows.map((row) => ({ ...row, alerts: [], diagnostic: '' }));
   const byId = new Map(evidence.map((row) => [row.id, row]));
-  const tmeByTeam = new Map(teamSummaries.map((team) => [team.equipe, team.kpis['TME IMP']]));
+  const tmeByTeam = new Map(teamSummaries.map((team) => [team.equipe, team.kpis['TMR Imp']]));
 
   for (const row of evidence) {
     addRowAlerts(row, globalTr, globalTl, tmeByTeam.get(row.equipe));

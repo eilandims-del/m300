@@ -24,8 +24,13 @@ export function parseDateTimeBr(value) {
   if (!value) return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
   if (typeof value === 'number') {
-    const excelEpoch = Date.UTC(1899, 11, 30);
-    return new Date(excelEpoch + value * 86400000);
+    if (!Number.isFinite(value)) return null;
+    // Serial do Excel -> hora de parede (dia/mês/ano/hora reais da planilha),
+    // extraída em UTC e remontada em horário local. Assim o valor é idêntico
+    // em qualquer navegador ou computador, sem depender do fuso.
+    const utcMs = Date.UTC(1899, 11, 30) + Math.round(value * 86400) * 1000;
+    const u = new Date(utcMs);
+    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
   }
 
   const text = String(value).trim();

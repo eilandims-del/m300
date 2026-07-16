@@ -16,5 +16,9 @@ function resolveBase() {
 
 export default defineConfig({
   plugins: [react()],
-  base: resolveBase()
+  base: resolveBase(),
+  define: {
+    // Carimbo de build usado para invalidar cache do navegador a cada deploy.
+    __APP_BUILD__: JSON.stringify(String(Date.now()))
+  }
 });

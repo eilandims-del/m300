@@ -5,7 +5,7 @@ import { MultiSelect } from '../components/MultiSelect.jsx';
 import { EvidenceTable, TeamSummaryTable } from '../components/Tables.jsx';
 import { ReportPanel } from '../components/ReportPanel.jsx';
 import { getChartHint } from '../config/kpiDisplay.js';
-import { HEATMAP_KPIS, PRIMARY_KPIS, getThreshold, isKpiOnTarget } from '../config/kpiThresholds.js';
+import { HEATMAP_KPIS, PRIMARY_KPIS, getKpiStatus, getThreshold, isKpiOnTarget } from '../config/kpiThresholds.js';
 import { describeAlert, formatAlertLabel } from '../services/alerts.js';
 import { formatNumber } from '../utils/numberDate.js';
 
@@ -24,6 +24,17 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
     const selected = new Set(heatmapTeams);
     return analytics.teamSummaries.filter((team) => selected.has(team.equipe));
   }, [analytics.teamSummaries, heatmapTeams]);
+
+  const sortedPrimaryKpis = useMemo(() => {
+    return [...PRIMARY_KPIS].sort((a, b) => {
+      const aStatus = getKpiStatus(analytics.rankings[a]?.average, getThreshold(a));
+      const bStatus = getKpiStatus(analytics.rankings[b]?.average, getThreshold(b));
+      const aRank = aStatus.onTarget ? 0 : 1;
+      const bRank = bStatus.onTarget ? 0 : 1;
+      if (aRank !== bRank) return aRank - bRank;
+      return PRIMARY_KPIS.indexOf(a) - PRIMARY_KPIS.indexOf(b);
+    });
+  }, [analytics.rankings]);
 
   const overviewCards = [
     ['KPI crítico', overview.kpiMaisCritico, '🚨', 'warn'],
@@ -77,7 +88,7 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
           <p className="section-subtitle">Média geral do recorte filtrado, com status em relação à meta operacional.</p>
         </div>
         <div className="metric-grid-4 kpi-grid">
-          {PRIMARY_KPIS.map((kpi) => (
+          {sortedPrimaryKpis.map((kpi) => (
             <KpiCard key={kpi} kpi={kpi} value={analytics.rankings[kpi]?.average} />
           ))}
         </div>

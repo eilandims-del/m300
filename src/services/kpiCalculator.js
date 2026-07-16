@@ -1,8 +1,9 @@
-import { KPI_THRESHOLDS, getThreshold, isKpiOnTarget, scoreKpi } from '../config/kpiThresholds.js';
-import { averagePrimeiroDesloc, averagePrimeiroDespacho, averagePrimeiroLogin } from './platformKpis.js';
+import { KPI_THRESHOLDS, SCORED_KPIS, getThreshold, isKpiOnTarget, scoreKpi } from '../config/kpiThresholds.js';
+import { averagePrimeiroDesloc, averagePrimeiroDespacho, averageLoginHour, averagePrimeiroLogin } from './platformKpis.js';
 import { average, minutesBetween, sum } from '../utils/numberDate.js';
 
 const KPI_NAMES = KPI_THRESHOLDS.map((item) => item.kpi);
+const SCORED_KPI_NAMES = SCORED_KPIS.map((item) => item.kpi);
 
 export function buildAnalytics(rows) {
   const teams = groupBy(rows, (row) => row.equipe);
@@ -20,21 +21,36 @@ function calculateTeam(team, rows) {
   const dedupe = uniqueBy(rows, (row) => `${row.equipe}|${row.dataReferenciaKey}`);
 
   const kpis = {
-    'OS Dia': dates.size ? os.size / dates.size : null,
-    // Os totais *_TOTAL_CAL são diários (repetidos por OS); dedupe por equipe+dia
-    // evita ponderar cada dia pela quantidade de OS, igual à Utilização.
+    'OS Dia': calculateOsDia(rows, dates.size, os.size),
     'Eficiência': ratioPercent(sum(dedupe.map((row) => row.tempoPadraoTotalCal)), sum(dedupe.map((row) => row.trTotalCal))),
     'Utilização': ratioPercent(sum(dedupe.map((row) => row.htTotal)), sum(dedupe.map((row) => row.hdTotal))),
-    'TME IMP': calculateTmeImp(rows),
+    'Task Time': ratioPercent(sum(dedupe.map((row) => row.taskTimeTotalTr)), sum(dedupe.map((row) => row.hdTotal))),
+    'TMR Sec': calculateTmrSec(rows),
+    'TMR Imp': calculateTmrImp(rows),
     '1º Login': averagePrimeiroLogin(dedupe),
     '1º Despacho': averagePrimeiroDespacho(dedupe),
     '1º Desloc.': averagePrimeiroDesloc(dedupe),
     'Retorno Base': average(dedupe.map((row) => row.retornoBase)),
     'Intervalo': calculateIntervalo(rows)
   };
+  kpis['Produtividade'] = calculateProdutividade(kpis['Eficiência'], kpis['Utilização']);
 
-  const scores = Object.fromEntries(KPI_NAMES.map((kpi) => [kpi, scoreKpi(kpis[kpi], getThreshold(kpi))]));
-  const outOfTarget = KPI_NAMES.filter((kpi) => !isKpiOnTarget(kpis[kpi], getThreshold(kpi)));
+  const loginHour = averageLoginHour(dedupe);
+  const scores = Object.fromEntries(
+    SCORED_KPI_NAMES.map((kpi) => {
+      if (kpi === '1º Login') {
+        return [kpi, scoreKpi(loginHour, getThreshold(kpi))];
+      }
+      if (kpi === 'TMR Sec') {
+        return [kpi, scoreKpi(kpis[kpi], getThreshold(kpi), { hasData: hasTmrSecData(rows) })];
+      }
+      if (kpi === 'TMR Imp') {
+        return [kpi, scoreKpi(kpis[kpi], getThreshold(kpi), { hasData: hasTmrImpData(rows) })];
+      }
+      return [kpi, scoreKpi(kpis[kpi], getThreshold(kpi))];
+    })
+  );
+  const outOfTarget = SCORED_KPI_NAMES.filter((kpi) => !isKpiOnTarget(kpis[kpi], getThreshold(kpi)));
   const first = rows[0] || {};
   return {
     equipe: team,
@@ -51,7 +67,39 @@ function calculateTeam(team, rows) {
   };
 }
 
-function calculateTmeImp(rows) {
+function calculateOsDia(rows, dateCount, osCount) {
+  const byDate = groupBy(rows, (row) => row.dataReferenciaKey);
+  const dailyCounts = [...byDate.values()]
+    .map((dayRows) => {
+      const qtdMax = Math.max(0, ...dayRows.map((row) => row.qtdDeslocamentos || 0));
+      const uniqueOs = new Set(dayRows.map((row) => row.nrOrdem).filter(Boolean)).size;
+      const value = Math.max(qtdMax, uniqueOs);
+      return value > 0 ? value : null;
+    })
+    .filter((value) => value != null);
+
+  return dailyCounts.length ? average(dailyCounts) : dateCount ? osCount / dateCount : null;
+}
+
+function calculateProdutividade(eficiencia, utilizacao) {
+  if (eficiencia == null || utilizacao == null) return null;
+  return (eficiencia / 100) * (utilizacao / 100) * 100;
+}
+
+function hasTmrSecData(rows) {
+  return rows.some((row) => row.trOrdemSec > 0);
+}
+
+function hasTmrImpData(rows) {
+  return rows.some(
+    (row) =>
+      row.trOrdemImpSsEquipe > 0 ||
+      row.trOrdemImpSs > 0 ||
+      String(row.status || '').toLowerCase().includes('improdutivo')
+  );
+}
+
+function calculateTmrImp(rows) {
   const preferred = rows.map((row) => row.trOrdemImpSsEquipe).filter((value) => value > 0);
   if (preferred.length) return average(preferred);
   return average(
@@ -59,6 +107,11 @@ function calculateTmeImp(rows) {
       .filter((row) => String(row.status || '').toLowerCase().includes('improdutivo') && row.trOrdem > 0)
       .map((row) => row.trOrdem)
   );
+}
+
+function calculateTmrSec(rows) {
+  const values = rows.map((row) => row.trOrdemSec).filter((value) => value > 0);
+  return values.length ? average(values) : null;
 }
 
 function calculateFirstLogin(rows) {
@@ -117,10 +170,19 @@ function calculateDailyTrends(rows) {
       date,
       equipe,
       base,
-      'OS Dia': os.size,
+      'OS Dia': Math.max(
+        first.qtdDeslocamentos || 0,
+        new Set(groupRows.map((row) => row.nrOrdem).filter(Boolean)).size
+      ) || os.size,
       'Eficiência': ratioPercent(sum(groupRows.map((row) => row.tempoPadraoTotalCal)), sum(groupRows.map((row) => row.trTotalCal))),
       'Utilização': ratioPercent(first.htTotal, first.hdTotal),
-      'TME IMP': calculateTmeImp(groupRows),
+      'Task Time': ratioPercent(first.taskTimeTotalTr, first.hdTotal),
+      'TMR Sec': calculateTmrSec(groupRows),
+      'TMR Imp': calculateTmrImp(groupRows),
+      'Produtividade': calculateProdutividade(
+        ratioPercent(sum(groupRows.map((row) => row.tempoPadraoTotalCal)), sum(groupRows.map((row) => row.trTotalCal))),
+        ratioPercent(first.htTotal, first.hdTotal)
+      ),
       '1º Login': calculateFirstLogin([first]),
       '1º Despacho': calculateFirstDispatch([first]),
       '1º Desloc.': calculateFirstDesloc([first]),
@@ -158,7 +220,7 @@ function calculateRankings(teamSummaries) {
 function calculateOverview(rows, teams, rankings) {
   const dates = rows.map((row) => row.dataReferenciaDate).filter(Boolean).sort((a, b) => a - b);
   const belowMeta = teams.filter((team) => team.outOfTarget.length > 0);
-  const critical = KPI_NAMES.map((kpi) => ({
+  const critical = SCORED_KPI_NAMES.map((kpi) => ({
     kpi,
     out: teams.filter((team) => !isKpiOnTarget(team.kpis[kpi], getThreshold(kpi))).length
   })).sort((a, b) => b.out - a.out)[0];

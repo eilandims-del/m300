@@ -8,7 +8,7 @@ export async function readInputFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = textExtensions.includes(extension)
     ? XLSX.read(decodeTextFile(buffer), { type: 'string', raw: false, FS: extension === 'tsv' ? '\t' : undefined })
-    : XLSX.read(buffer, { type: 'array', cellDates: true });
+    : XLSX.read(buffer, { type: 'array' });
 
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!firstSheet) throw new Error('Nenhuma planilha foi encontrada no arquivo.');
@@ -16,8 +16,8 @@ export async function readInputFile(file) {
   const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
   if (!rows.length) throw new Error('A planilha está vazia ou não contém cabeçalho.');
 
-  // Segunda leitura com valores crus (Date/serial) para preservar o horário real
-  // dos campos de data/hora, que a formatação do Excel pode reduzir só à data.
+  // Segunda leitura crua: sem cellDates, as datas vêm como serial do Excel
+  // (número), convertido de forma determinística (sem fuso) em numberDate.js.
   const typedRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: true });
 
   const { columns, map, warnings } = buildColumnMap(rows);

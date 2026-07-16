@@ -1,4 +1,14 @@
-import { average, minutesBetween } from '../utils/numberDate.js';
+import { average, minutesBetween, parseDateTimeBr } from '../utils/numberDate.js';
+
+export function loginHourOfDay(row) {
+  const date = parseDateTimeBr(row.logInCorrigido || row.logIn);
+  if (!date) return null;
+  return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
+}
+
+export function averageLoginHour(rows) {
+  return averageKpi(rows, loginHourOfDay);
+}
 
 export function resolvePrimeiroLogin(row) {
   if (row.primeiroLoginCorrigido != null && !Number.isNaN(row.primeiroLoginCorrigido)) {

@@ -1,5 +1,5 @@
 // Área de upload: apenas a planilha principal Spotfire.
-export function UploadArea({ onMainFile, loading, mainName }) {
+export function UploadArea({ onMainFile, loading, mainName, onClear }) {
   return (
     <div className="upload-area">
       <label className="upload-box primary">
@@ -12,6 +12,11 @@ export function UploadArea({ onMainFile, loading, mainName }) {
         <strong>{loading ? 'Processando...' : mainName ? 'Trocar planilha principal' : 'Selecionar planilha principal'}</strong>
         <span className="upload-hint">{mainName || 'XLSX, XLS, CSV ou TSV do Spotfire'}</span>
       </label>
+      {mainName && onClear && (
+        <button type="button" className="upload-clear" onClick={onClear} disabled={loading}>
+          Limpar planilha
+        </button>
+      )}
     </div>
   );
 }
