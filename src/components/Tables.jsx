@@ -18,10 +18,6 @@ import { formatNumber, parseDateTimeBr } from '../utils/numberDate.js';
 
 const SUMMARY_KPIS = KPI_THRESHOLDS;
 
-const EVIDENCE_PAGE_SIZE = 300;
-
-
-
 const EVIDENCE_METRIC_HEADERS = [
 
   { label: 'Início cal.', hint: 'Horário de abertura da jornada da equipe (hora)' },
@@ -191,8 +187,6 @@ export function EvidenceTable({ rows }) {
 
   const [dateSort, setDateSort] = useState('desc');
 
-  const [visibleCount, setVisibleCount] = useState(EVIDENCE_PAGE_SIZE);
-
   const [pdfBusy, setPdfBusy] = useState(false);
 
 
@@ -221,17 +215,7 @@ export function EvidenceTable({ rows }) {
 
   );
 
-  const displayRows = useMemo(() => sortedRows.slice(0, visibleCount), [sortedRows, visibleCount]);
-
   const totalRows = sortedRows.length;
-
-
-
-  useEffect(() => {
-
-    setVisibleCount(EVIDENCE_PAGE_SIZE);
-
-  }, [sortedRows]);
 
 
 
@@ -307,9 +291,7 @@ export function EvidenceTable({ rows }) {
 
             <p className="section-subtitle">
 
-              {formatNumber(totalRows, 0)} incidência{totalRows === 1 ? '' : 's'} no recorte atual
-
-              {totalRows > displayRows.length ? ` · mostrando ${formatNumber(displayRows.length, 0)}` : ''}.
+              {formatNumber(totalRows, 0)} incidência{totalRows === 1 ? '' : 's'} no recorte atual.
 
               Linha do tempo por equipe: cada dia começa pela 1ª OS (em destaque).
 
@@ -407,7 +389,7 @@ export function EvidenceTable({ rows }) {
 
             <tbody>
 
-              {displayRows.map((row) => {
+              {sortedRows.map((row) => {
 
                 const hasDetails = row.alerts.length > 0 || Boolean(row.diagnostic);
 
@@ -510,48 +492,6 @@ export function EvidenceTable({ rows }) {
           </table>
 
         </div>
-
-        {totalRows > displayRows.length && (
-
-          <div className="evidence-loadmore">
-
-            <span>Mostrando {formatNumber(displayRows.length, 0)} de {formatNumber(totalRows, 0)} incidências.</span>
-
-            <div className="evidence-loadmore-actions">
-
-              <button
-
-                type="button"
-
-                className="btn-secondary"
-
-                onClick={() => setVisibleCount((current) => current + EVIDENCE_PAGE_SIZE)}
-
-              >
-
-                Carregar mais {EVIDENCE_PAGE_SIZE}
-
-              </button>
-
-              <button
-
-                type="button"
-
-                className="btn-secondary"
-
-                onClick={() => setVisibleCount(totalRows)}
-
-              >
-
-                Carregar todas
-
-              </button>
-
-            </div>
-
-          </div>
-
-        )}
 
       </section>
 

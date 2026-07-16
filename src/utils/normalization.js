@@ -164,14 +164,30 @@ export function normalizeRows(rows, columnMap, typedRows = null) {
       for (const [field, column] of Object.entries(columnMap)) {
         item[field] = column ? row[column] : null;
       }
-      // Usa o valor cru (serial/Date/texto original) dos campos de data/hora,
-      // exatamente como está na planilha, sem a formatação que perde o horário.
+      // A Data Referência deve respeitar exatamente o texto exibido na
+      // planilha (ex.: 01/07/2026). O valor cru pode ter sido inferido por uma
+      // biblioteca como MM/DD e trocar 1º de julho por 7 de janeiro.
+      //
+      // Nos demais campos de data/hora, usamos o valor cru somente quando ele
+      // é realmente tipado (serial numérico ou Date), pois isso preserva horas
+      // ocultadas pela formatação da célula. Strings cruas nunca substituem o
+      // texto formatado, evitando interpretações regionais ambíguas.
       if (typedRow) {
         for (const field of dateTimeFields) {
           const column = columnMap[field];
           if (!column) continue;
+
+          const displayedValue = item[field];
           const typedValue = typedRow[column];
-          if (typedValue !== '' && typedValue != null) {
+          const hasDisplayedValue = displayedValue !== '' && displayedValue != null;
+          const hasTypedValue = typedValue !== '' && typedValue != null;
+
+          if (field === 'dataReferencia') {
+            if (!hasDisplayedValue && hasTypedValue) item[field] = typedValue;
+            continue;
+          }
+
+          if (hasTypedValue && (typeof typedValue === 'number' || typedValue instanceof Date)) {
             item[field] = typedValue;
           }
         }
