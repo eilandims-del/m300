@@ -30,6 +30,14 @@ export function parseDateTimeBr(value) {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return null;
 
+    // Valores grandes são timestamps em milissegundos produzidos pela etapa
+    // de normalização compacta. Seriais do Excel ficam na faixa de dezenas de
+    // milhares, portanto não há ambiguidade prática entre os dois formatos.
+    if (Math.abs(value) > 10_000_000_000) {
+      const timestampDate = new Date(value);
+      return Number.isNaN(timestampDate.getTime()) ? null : timestampDate;
+    }
+
     // Serial do Excel -> hora de parede. O valor é desmontado em UTC e
     // remontado no horário local para impedir deslocamento por fuso horário.
     const utcMs = Date.UTC(1899, 11, 30) + Math.round(value * 86_400_000);

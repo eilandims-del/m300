@@ -23,7 +23,7 @@ export function applyFilters(rows, filters) {
     if (periodoSet.size && !periodoSet.has(normalizeToken(row.periodoResolvido))) return false;
 
     if (inicio != null || fim != null) {
-      const time = row.dataReferenciaDate instanceof Date ? row.dataReferenciaDate.getTime() : null;
+      const time = dateValueTime(row.dataReferenciaDate);
       if (time == null) return false;
       if (inicio != null && time < inicio) return false;
       if (fim != null && time > fim) return false;
@@ -72,10 +72,21 @@ export function sanitizeFilters(filters, options) {
 }
 
 export function getDateBounds(rows) {
-  const dates = rows.map((row) => row.dataReferenciaDate).filter((date) => date instanceof Date && !Number.isNaN(date.getTime()));
-  if (!dates.length) return { min: null, max: null };
-  const times = dates.map((date) => date.getTime());
-  return { min: new Date(Math.min(...times)), max: new Date(Math.max(...times)) };
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const row of rows) {
+    const time = dateValueTime(row.dataReferenciaDate);
+    if (time == null) continue;
+    if (time < min) min = time;
+    if (time > max) max = time;
+  }
+  return Number.isFinite(min) ? { min: new Date(min), max: new Date(max) } : { min: null, max: null };
+}
+
+function dateValueTime(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.getTime();
+  return null;
 }
 
 function endOfDayTime(value) {

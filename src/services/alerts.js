@@ -1,5 +1,5 @@
 import { resolvePrimeiroDesloc } from './platformKpis.js';
-import { average, minutesBetween, parseDateTimeBr } from '../utils/numberDate.js';
+import { minutesBetween, parseDateTimeBr } from '../utils/numberDate.js';
 import { groupBy } from './kpiCalculator.js';
 
 // Ordem canônica dos alertas — segue o fluxo do dia da equipe:
@@ -74,13 +74,17 @@ export function groupAlertCounts(alerts) {
 export { RECOMMENDATIONS };
 
 export function buildAlerts(rows, teamSummaries) {
-  const globalTr = average(rows.map((row) => row.trOrdem).filter((value) => value > 0)) || 0;
-  const globalTl = average(rows.map((row) => row.tlOrdem).filter((value) => value > 0)) || 0;
-  const evidence = rows.map((row) => ({ ...row, alerts: [], diagnostic: '' }));
-  const byId = new Map(evidence.map((row) => [row.id, row]));
+  const globalTr = averagePositiveField(rows, 'trOrdem');
+  const globalTl = averagePositiveField(rows, 'tlOrdem');
+
+  // As linhas filtradas já são a fonte das evidências. Reutilizá-las evita
+  // duplicar centenas de milhares de objetos apenas para acrescentar alertas.
+  const evidence = rows;
   const tmeByTeam = new Map(teamSummaries.map((team) => [team.equipe, team.kpis['TMR Imp']]));
 
   for (const row of evidence) {
+    row.alerts = [];
+    row.diagnostic = '';
     addRowAlerts(row, globalTr, globalTl, tmeByTeam.get(row.equipe));
   }
 
@@ -89,11 +93,8 @@ export function buildAlerts(rows, teamSummaries) {
   }
 
   for (const row of evidence) {
-    // Cada alerta consolidado aparece só uma vez por OS, mesmo que vários
-    // gatilhos internos tenham disparado o mesmo código.
     row.alerts = ALERT_ORDER.filter((code) => row.alerts.includes(code));
     row.diagnostic = buildDiagnostic(row.alerts);
-    byId.set(row.id, row);
   }
 
   return {
@@ -101,6 +102,18 @@ export function buildAlerts(rows, teamSummaries) {
     teamAlerts: summarizeTeamAlerts(evidence),
     alertPareto: summarizePareto(evidence)
   };
+}
+
+function averagePositiveField(rows, field) {
+  let total = 0;
+  let count = 0;
+  for (const row of rows) {
+    const value = Number(row[field]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    total += value;
+    count += 1;
+  }
+  return count ? total / count : 0;
 }
 
 function addRowAlerts(row, globalTr, globalTl, teamTme) {
@@ -172,24 +185,37 @@ function timeValue(value) {
 }
 
 function summarizeTeamAlerts(rows) {
-  const pairs = [];
-  for (const [key, grouped] of groupBy(rows.flatMap((row) => row.alerts.map((alert) => ({ row, alert }))), (item) => `${item.row.equipe}|${item.alert}`)) {
-    const [equipe, alert] = key.split('|');
-    pairs.push({
-      equipe,
-      alerta: alert,
-      quantidade: grouped.length,
-      piorOcorrencia: grouped[0]?.row.nrOrdem || grouped[0]?.row.dataReferenciaKey || '-',
-      recomendacao: RECOMMENDATIONS[alert] || 'Investigar a ocorrência com a equipe operacional.'
-    });
+  const counts = new Map();
+  for (const row of rows) {
+    for (const alert of row.alerts) {
+      const key = `${row.equipe}|${alert}`;
+      const current = counts.get(key);
+      if (current) {
+        current.quantidade += 1;
+      } else {
+        counts.set(key, {
+          equipe: row.equipe,
+          alerta: alert,
+          quantidade: 1,
+          piorOcorrencia: row.nrOrdem || row.dataReferenciaKey || '-',
+          recomendacao: RECOMMENDATIONS[alert] || 'Investigar a ocorrência com a equipe operacional.'
+        });
+      }
+    }
   }
-  return pairs.sort((a, b) => b.quantidade - a.quantidade);
+  return [...counts.values()].sort((a, b) => b.quantidade - a.quantidade);
 }
 
 function summarizePareto(rows) {
   const counts = new Map();
-  rows.flatMap((row) => row.alerts).forEach((alert) => counts.set(alert, (counts.get(alert) || 0) + 1));
-  return [...counts.entries()].map(([alerta, quantidade]) => ({ alerta, quantidade })).sort((a, b) => b.quantidade - a.quantidade);
+  for (const row of rows) {
+    for (const alert of row.alerts) {
+      counts.set(alert, (counts.get(alert) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([alerta, quantidade]) => ({ alerta, quantidade }))
+    .sort((a, b) => b.quantidade - a.quantidade);
 }
 
 const DIAGNOSTIC_LINES = {

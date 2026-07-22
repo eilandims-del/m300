@@ -156,54 +156,84 @@ function fallbackText(kpi, field) {
   return `O KPI ${kpi} pode ficar indisponível ou parcial sem ${field}.`;
 }
 
-export function normalizeRows(rows, columnMap, typedRows = null) {
-  return rows
-    .map((row, index) => {
-      const item = { id: index + 1, raw: row };
-      const typedRow = typedRows?.[index];
-      for (const [field, column] of Object.entries(columnMap)) {
-        item[field] = column ? row[column] : null;
+export function normalizeRow(row, columnMap, id, typedRow = null) {
+  // Mantém somente os campos usados pelo dashboard. Não guardamos uma cópia
+  // completa da linha original, pois isso multiplica o consumo de memória em
+  // arquivos grandes (CSV/TSV com centenas de milhares de registros).
+  const item = { id };
+
+  for (const [field, column] of Object.entries(columnMap)) {
+    item[field] = column ? row[column] : null;
+  }
+
+  // Preserva o conteúdo original da coluna Intervalo para distinguir célula
+  // preenchida de valor numérico ausente, sem reter todas as 64 colunas.
+  item.intervaloInformado = columnMap.intervalo
+    ? String(row[columnMap.intervalo] ?? '').trim() !== ''
+    : false;
+
+  // A Data Referência deve respeitar exatamente o texto exibido na planilha
+  // (ex.: 01/07/2026). Nos demais campos de data/hora, o valor cru do Excel é
+  // usado somente quando for serial numérico ou Date.
+  if (typedRow) {
+    for (const field of dateTimeFields) {
+      const column = columnMap[field];
+      if (!column) continue;
+
+      const displayedValue = item[field];
+      const typedValue = typedRow[column];
+      const hasDisplayedValue = displayedValue !== '' && displayedValue != null;
+      const hasTypedValue = typedValue !== '' && typedValue != null;
+
+      if (field === 'dataReferencia') {
+        if (!hasDisplayedValue && hasTypedValue) item[field] = typedValue;
+        continue;
       }
-      // A Data Referência deve respeitar exatamente o texto exibido na
-      // planilha (ex.: 01/07/2026). O valor cru pode ter sido inferido por uma
-      // biblioteca como MM/DD e trocar 1º de julho por 7 de janeiro.
-      //
-      // Nos demais campos de data/hora, usamos o valor cru somente quando ele
-      // é realmente tipado (serial numérico ou Date), pois isso preserva horas
-      // ocultadas pela formatação da célula. Strings cruas nunca substituem o
-      // texto formatado, evitando interpretações regionais ambíguas.
-      if (typedRow) {
-        for (const field of dateTimeFields) {
-          const column = columnMap[field];
-          if (!column) continue;
 
-          const displayedValue = item[field];
-          const typedValue = typedRow[column];
-          const hasDisplayedValue = displayedValue !== '' && displayedValue != null;
-          const hasTypedValue = typedValue !== '' && typedValue != null;
-
-          if (field === 'dataReferencia') {
-            if (!hasDisplayedValue && hasTypedValue) item[field] = typedValue;
-            continue;
-          }
-
-          if (hasTypedValue && (typeof typedValue === 'number' || typedValue instanceof Date)) {
-            item[field] = typedValue;
-          }
-        }
+      if (hasTypedValue && (typeof typedValue === 'number' || typedValue instanceof Date)) {
+        item[field] = typedValue;
       }
-      for (const field of numberFields) item[field] = parseNumber(item[field]);
+    }
+  }
 
-      item.dataReferenciaKey = formatDateKey(item.dataReferencia);
-      item.dataReferenciaDate = parseDateTimeBr(item.dataReferencia);
-      item.equipe = String(item.equipe || '').trim() || 'Equipe não informada';
-      item.nrOrdem = String(item.nrOrdem || '').trim();
-      // Valores brutos do arquivo principal; a resolução final (auxiliar > prefixo)
-      // é aplicada por enrichRows em teamResolver.js.
-      item.baseArquivo = String(item.base || '').trim();
-      item.tipoArquivo = String(item.tipoEquipe || '').trim();
-      item.periodoArquivo = String(item.periodo || '').trim();
-      return item;
-    })
-    .filter((row) => row.equipe && row.dataReferenciaKey);
+  for (const field of numberFields) item[field] = parseNumber(item[field]);
+
+  const referenceDate = parseDateTimeBr(item.dataReferencia);
+  item.dataReferenciaKey = referenceDate ? formatDateKey(referenceDate) : '';
+  item.dataReferenciaDate = referenceDate ? referenceDate.getTime() : null;
+
+  // Converte datas e horários para timestamps numéricos. Isso preserva a data
+  // exata, evita reinterpretação regional e reduz fortemente o uso de memória
+  // em comparação com milhões de strings DD/MM/AAAA HH:mm:ss.
+  for (const field of dateTimeFields) {
+    if (field === 'dataReferencia') continue;
+    const parsed = parseDateTimeBr(item[field]);
+    item[field] = parsed ? parsed.getTime() : null;
+  }
+
+  item.equipe = String(item.equipe || '').trim() || 'Equipe não informada';
+  item.nrOrdem = String(item.nrOrdem || '').trim();
+  item.baseArquivo = String(item.base || '').trim();
+  item.tipoArquivo = String(item.tipoEquipe || '').trim();
+  item.periodoArquivo = String(item.periodo || '').trim();
+
+  // Estes campos já foram consolidados nas propriedades compactas acima.
+  delete item.dataReferencia;
+  delete item.base;
+  delete item.tipoEquipe;
+  delete item.periodo;
+  delete item.htOrdem;
+  delete item.horasExtras;
+  delete item.desvios;
+
+  return item.equipe && item.dataReferenciaKey ? item : null;
+}
+
+export function normalizeRows(rows, columnMap, typedRows = null, startId = 1) {
+  const normalized = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const item = normalizeRow(rows[index], columnMap, startId + index, typedRows?.[index] || null);
+    if (item) normalized.push(item);
+  }
+  return normalized;
 }

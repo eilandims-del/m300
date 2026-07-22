@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { KPI_THRESHOLDS, MAX_TEAM_SCORE, formatClassificacao } from '../config/kpiThresholds.js';
 
@@ -17,6 +17,10 @@ import { formatNumber, parseDateTimeBr } from '../utils/numberDate.js';
 
 
 const SUMMARY_KPIS = KPI_THRESHOLDS;
+
+const EVIDENCE_ROW_HEIGHT = 52;
+const EVIDENCE_VIEWPORT_HEIGHT = 560;
+const EVIDENCE_OVERSCAN = 12;
 
 const EVIDENCE_METRIC_HEADERS = [
 
@@ -188,6 +192,8 @@ export function EvidenceTable({ rows }) {
   const [dateSort, setDateSort] = useState('desc');
 
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const evidenceScrollRef = useRef(null);
 
 
 
@@ -217,7 +223,23 @@ export function EvidenceTable({ rows }) {
 
   const totalRows = sortedRows.length;
 
+  // Virtualização manual: todas as incidências continuam disponíveis na barra
+  // de rolagem, mas apenas as linhas visíveis são criadas no DOM.
+  const virtualStart = Math.max(0, Math.floor(scrollTop / EVIDENCE_ROW_HEIGHT) - EVIDENCE_OVERSCAN);
+  const virtualCount = Math.ceil(EVIDENCE_VIEWPORT_HEIGHT / EVIDENCE_ROW_HEIGHT) + EVIDENCE_OVERSCAN * 2;
+  const virtualEnd = Math.min(totalRows, virtualStart + virtualCount);
+  const visibleRows = sortedRows.slice(virtualStart, virtualEnd);
+  const topSpacerHeight = virtualStart * EVIDENCE_ROW_HEIGHT;
+  const bottomSpacerHeight = Math.max(0, (totalRows - virtualEnd) * EVIDENCE_ROW_HEIGHT);
 
+  useEffect(() => {
+    setScrollTop(0);
+    if (evidenceScrollRef.current) evidenceScrollRef.current.scrollTop = 0;
+  }, [selectedTeams, dateSort, rows]);
+
+  function handleEvidenceScroll(event) {
+    setScrollTop(event.currentTarget.scrollTop);
+  }
 
   function toggleDateSort() {
 
@@ -337,7 +359,7 @@ export function EvidenceTable({ rows }) {
 
         </div>
 
-        <div className="table-wrap evidence-table-wrap">
+        <div className="table-wrap evidence-table-wrap" ref={evidenceScrollRef} onScroll={handleEvidenceScroll}>
 
           <table className="data-table evidence-table">
 
@@ -389,7 +411,12 @@ export function EvidenceTable({ rows }) {
 
             <tbody>
 
-              {sortedRows.map((row) => {
+              {topSpacerHeight > 0 && (
+                <tr className="virtual-spacer-row" aria-hidden="true">
+                  <td colSpan={15} style={{ height: `${topSpacerHeight}px` }} />
+                </tr>
+              )}
+              {visibleRows.map((row) => {
 
                 const hasDetails = row.alerts.length > 0 || Boolean(row.diagnostic);
 
@@ -486,6 +513,11 @@ export function EvidenceTable({ rows }) {
                 );
 
               })}
+              {bottomSpacerHeight > 0 && (
+                <tr className="virtual-spacer-row" aria-hidden="true">
+                  <td colSpan={15} style={{ height: `${bottomSpacerHeight}px` }} />
+                </tr>
+              )}
 
             </tbody>
 
@@ -960,6 +992,12 @@ function compareEvidenceDates(a, b, direction) {
 
 
 function evidenceDateTimestamp(row) {
+
+  if (typeof row.dataReferenciaDate === 'number' && Number.isFinite(row.dataReferenciaDate)) {
+
+    return row.dataReferenciaDate;
+
+  }
 
   if (row.dataReferenciaDate instanceof Date && !Number.isNaN(row.dataReferenciaDate.getTime())) {
 

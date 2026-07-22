@@ -16,7 +16,7 @@ export default function App() {
   const [mainName, setMainName] = useState('');
   const [filters, setFilters] = useState(createEmptyFilters());
   const [view, setView] = useState('dashboard');
-  const [status, setStatus] = useState({ loading: false, error: '' });
+  const [status, setStatus] = useState({ loading: false, error: '', message: '', percent: 0 });
   const [pdfBusy, setPdfBusy] = useState(false);
 
   const resolvedRows = useMemo(
@@ -45,15 +45,22 @@ export default function App() {
   }, [options]);
 
   const handleMainFile = useCallback(async (file) => {
-    setStatus({ loading: true, error: '' });
+    setStatus({ loading: true, error: '', message: 'Preparando arquivo...', percent: 0 });
     try {
-      const parsed = await readInputFile(file);
+      const parsed = await readInputFile(file, (progress) => {
+        setStatus({
+          loading: true,
+          error: '',
+          message: progress.message || 'Processando arquivo...',
+          percent: progress.percent ?? 0
+        });
+      });
       setDataset(parsed);
       setMainName(file.name);
       setFilters(createEmptyFilters());
-      setStatus({ loading: false, error: '' });
+      setStatus({ loading: false, error: '', message: '', percent: 100 });
     } catch (error) {
-      setStatus({ loading: false, error: error.message || 'Erro ao processar o arquivo.' });
+      setStatus({ loading: false, error: error.message || 'Erro ao processar o arquivo.', message: '', percent: 0 });
     }
   }, []);
 
@@ -62,7 +69,7 @@ export default function App() {
     setMainName('');
     setFilters(createEmptyFilters());
     setView('dashboard');
-    setStatus({ loading: false, error: '' });
+    setStatus({ loading: false, error: '', message: '', percent: 0 });
     await clearAppCaches();
   }, []);
 
@@ -103,7 +110,12 @@ export default function App() {
 
       {status.error && <div className="error">{status.error}</div>}
 
-      {status.loading && <div className="loading">Processando planilha, aguarde...</div>}
+      {status.loading && (
+        <div className="loading">
+          <strong>{status.message || 'Processando planilha, aguarde...'}</strong>
+          <span>{status.percent ? `${status.percent}%` : ''}</span>
+        </div>
+      )}
 
       {!dataset && !status.loading && (
         <section className="empty-state">

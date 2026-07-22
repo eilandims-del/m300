@@ -126,7 +126,7 @@ function getOccurrenceDate(row) {
     parseDateTimeBr(row.aCaminho) ||
     parseDateTimeBr(row.noLocal) ||
     parseDateTimeBr(row.liberada) ||
-    parseDateTimeBr(row.dataReferencia)
+    parseDateTimeBr(row.dataReferenciaDate)
   );
 }
 

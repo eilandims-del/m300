@@ -2678,3 +2678,30 @@ a:focus-visible,
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Virtualização da tabela de evidências: preserva todas as incidências na
+   rolagem sem criar centenas de milhares de linhas no DOM. */
+.evidence-table tbody tr:not(.virtual-spacer-row) {
+  height: 52px;
+}
+
+.evidence-table .virtual-spacer-row,
+.evidence-table .virtual-spacer-row:hover {
+  height: auto;
+  background: transparent !important;
+}
+
+.evidence-table .virtual-spacer-row td,
+.evidence-table .virtual-spacer-row:hover td {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}

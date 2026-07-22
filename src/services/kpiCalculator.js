@@ -218,7 +218,25 @@ function calculateRankings(teamSummaries) {
 }
 
 function calculateOverview(rows, teams, rankings) {
-  const dates = rows.map((row) => row.dataReferenciaDate).filter(Boolean).sort((a, b) => a - b);
+  let minDate = Number.POSITIVE_INFINITY;
+  let maxDate = Number.NEGATIVE_INFINITY;
+  const osSet = new Set();
+  const intervalTeams = new Set();
+
+  for (const row of rows) {
+    const time = typeof row.dataReferenciaDate === 'number'
+      ? row.dataReferenciaDate
+      : row.dataReferenciaDate instanceof Date
+        ? row.dataReferenciaDate.getTime()
+        : null;
+    if (Number.isFinite(time)) {
+      if (time < minDate) minDate = time;
+      if (time > maxDate) maxDate = time;
+    }
+    if (row.nrOrdem) osSet.add(row.nrOrdem);
+    if (hasInterval(row)) intervalTeams.add(row.equipe);
+  }
+
   const belowMeta = teams.filter((team) => team.outOfTarget.length > 0);
   const critical = SCORED_KPI_NAMES.map((kpi) => ({
     kpi,
@@ -227,10 +245,12 @@ function calculateOverview(rows, teams, rankings) {
 
   return {
     totalEquipes: teams.length,
-    totalOs: new Set(rows.map((row) => row.nrOrdem).filter(Boolean)).size,
-    periodo: dates.length ? `${dates[0].toLocaleDateString('pt-BR')} a ${dates.at(-1).toLocaleDateString('pt-BR')}` : '-',
+    totalOs: osSet.size,
+    periodo: Number.isFinite(minDate)
+      ? `${new Date(minDate).toLocaleDateString('pt-BR')} a ${new Date(maxDate).toLocaleDateString('pt-BR')}`
+      : '-',
     equipesAbaixoMeta: belowMeta.length,
-    equipesComIntervalo: new Set(rows.filter(hasInterval).map((row) => row.equipe)).size,
+    equipesComIntervalo: intervalTeams.size,
     kpiMaisCritico: critical?.kpi || '-',
     piorUtilizacao: rankings['Utilização']?.ranking?.at(-1)?.equipe || '-',
     piorRetornoBase: rankings['Retorno Base']?.ranking?.at(-1)?.equipe || '-',
@@ -241,7 +261,7 @@ function calculateOverview(rows, teams, rankings) {
 }
 
 function hasInterval(row) {
-  return intervalMinutes(row) != null || String(row.raw?.Intervalo ?? '').trim() !== '';
+  return intervalMinutes(row) != null || row.intervaloInformado === true;
 }
 
 function topCauses(rows) {

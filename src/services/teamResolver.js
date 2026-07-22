@@ -102,18 +102,19 @@ export function resolveTeamMetadata(teamName, auxiliaryTeamTable, fallbackConfig
 // Aplica a resolução de metadados nas linhas normalizadas, respeitando valores do
 // próprio arquivo principal quando o cadastro/prefixo não identifica a equipe.
 export function enrichRows(rows, auxIndex) {
-  return rows.map((row) => {
+  // Enriquecimento in-place: evita criar uma segunda cópia completa de todas
+  // as incidências após o upload. O array é derivado do arquivo recém-lido e
+  // não é compartilhado com outra fonte mutável.
+  for (const row of rows) {
     const meta = resolveTeamMetadata(row.equipe, auxIndex, BASES_CONFIG);
     const identified = meta.origem !== 'nao_identificado';
-    return {
-      ...row,
-      polo: meta.polo,
-      baseResolvida: identified ? meta.base : row.baseArquivo || 'Não identificado',
-      tipoResolvido: identified ? meta.tipoEquipe : row.tipoArquivo || 'Não identificado',
-      periodoResolvido: meta.periodo || row.periodoArquivo || '',
-      origemMetadata: meta.origem
-    };
-  });
+    row.polo = meta.polo;
+    row.baseResolvida = identified ? meta.base : row.baseArquivo || 'Não identificado';
+    row.tipoResolvido = identified ? meta.tipoEquipe : row.tipoArquivo || 'Não identificado';
+    row.periodoResolvido = meta.periodo || row.periodoArquivo || '';
+    row.origemMetadata = meta.origem;
+  }
+  return rows;
 }
 
 export function getStaticCatalogStats(rows = []) {
