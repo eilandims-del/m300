@@ -69,9 +69,9 @@ export function resolveTeamMetadata(teamName, auxiliaryTeamTable, fallbackConfig
     const found = VTR_TEAM_INDEX.get(key);
     return {
       equipe: teamName,
-      base: found.base || 'Não identificado',
+      base: found.base || null,
       periodo: resolveTeamPeriod(teamName, found.periodo),
-      tipoEquipe: found.tipoEquipe || 'Não identificado',
+      tipoEquipe: found.tipoEquipe || null,
       polo: found.polo || byPrefixPolo(teamName, fallbackConfig),
       origem: 'catalogo_vtr'
     };
@@ -107,12 +107,24 @@ export function enrichRows(rows, auxIndex) {
   // não é compartilhado com outra fonte mutável.
   for (const row of rows) {
     const meta = resolveTeamMetadata(row.equipe, auxIndex, BASES_CONFIG);
-    const identified = meta.origem !== 'nao_identificado';
-    row.polo = meta.polo;
-    row.baseResolvida = identified ? meta.base : row.baseArquivo || 'Não identificado';
-    row.tipoResolvido = identified ? meta.tipoEquipe : row.tipoArquivo || 'Não identificado';
+    const catalogKey = normalizeToken(row.equipe);
+
+    // Resolve cada campo separadamente. Assim, uma correção de Base pode ser
+    // cadastrada sem inventar o Tipo da equipe; quando o catálogo não informa
+    // o tipo, o valor original da planilha continua sendo respeitado.
+    row.polo = usableValue(meta.polo) ? meta.polo : 'Não identificado';
+    row.baseResolvida = usableValue(meta.base)
+      ? meta.base
+      : row.baseArquivo || 'Não identificado';
+    row.tipoResolvido = usableValue(meta.tipoEquipe)
+      ? meta.tipoEquipe
+      : row.tipoArquivo || 'Não identificado';
     row.periodoResolvido = meta.periodo || row.periodoArquivo || '';
     row.origemMetadata = meta.origem;
+
+    // Proteção para novas viaturas: qualquer equipe ainda ausente do catálogo
+    // fixo recebe esta marcação e poderá ser filtrada pela opção "Novos".
+    row.equipeNova = !VTR_TEAM_INDEX.has(catalogKey);
   }
   return rows;
 }
@@ -146,6 +158,12 @@ export function buildRecognitionStats(rows, auxParsed) {
     bases: auxParsed?.stats?.bases || [],
     periodos: auxParsed?.stats?.periodos || []
   };
+}
+
+
+function usableValue(value) {
+  const token = normalizeToken(value);
+  return Boolean(token && token !== 'NAOIDENTIFICADO' && token !== 'NAOIDENTIFICADA');
 }
 
 function byPrefixPolo(teamName, fallbackConfig) {

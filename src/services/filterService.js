@@ -1,6 +1,8 @@
 import { startOfDay } from '../utils/dateUtils.js';
 import { normalizeToken } from '../utils/normalization.js';
 
+export const NEW_TEAMS_FILTER = 'Novos';
+
 export function createEmptyFilters() {
   return { bases: [], equipes: [], tiposEquipe: [], periodos: [], dataInicio: null, dataFim: null };
 }
@@ -15,10 +17,15 @@ export function applyFilters(rows, filters) {
   const equipeSet = normalizedSet(f.equipes);
   const tipoSet = normalizedSet(f.tiposEquipe);
   const periodoSet = normalizedSet(f.periodos);
+  const novosSelecionados = equipeSet.has(normalizeToken(NEW_TEAMS_FILTER));
 
   return rows.filter((row) => {
     if (baseSet.size && !baseSet.has(normalizeToken(row.baseResolvida))) return false;
-    if (equipeSet.size && !equipeSet.has(normalizeToken(row.equipe))) return false;
+    if (
+      equipeSet.size &&
+      !equipeSet.has(normalizeToken(row.equipe)) &&
+      !(novosSelecionados && row.equipeNova)
+    ) return false;
     if (tipoSet.size && !tipoSet.has(normalizeToken(row.tipoResolvido))) return false;
     if (periodoSet.size && !periodoSet.has(normalizeToken(row.periodoResolvido))) return false;
 
@@ -36,7 +43,7 @@ export function applyFilters(rows, filters) {
 export function deriveFilterOptions(rows) {
   return {
     bases: unique(rows.map((row) => row.baseResolvida)),
-    equipes: unique(rows.map((row) => row.equipe)),
+    equipes: deriveTeamOptions(rows),
     tiposEquipe: unique(rows.map((row) => row.tipoResolvido)),
     periodos: unique(rows.map((row) => row.periodoResolvido))
   };
@@ -59,7 +66,7 @@ export function deriveChainedFilterOptions(rows, filters) {
 
   return {
     bases: unique(rows.map((row) => row.baseResolvida)),
-    equipes: unique(rowsForTeams.map((row) => row.equipe)),
+    equipes: deriveTeamOptions(rowsForTeams),
     tiposEquipe: unique(rows.map((row) => row.tipoResolvido)),
     periodos: unique(rows.map((row) => row.periodoResolvido))
   };
@@ -93,6 +100,15 @@ function endOfDayTime(value) {
   const start = startOfDay(value);
   if (!start) return null;
   return start.getTime() + 24 * 60 * 60 * 1000 - 1;
+}
+
+function deriveTeamOptions(rows) {
+  const teams = unique(rows.map((row) => row.equipe))
+    .filter((team) => normalizeToken(team) !== normalizeToken(NEW_TEAMS_FILTER));
+
+  return rows.some((row) => row.equipeNova)
+    ? [NEW_TEAMS_FILTER, ...teams]
+    : teams;
 }
 
 function unique(values) {

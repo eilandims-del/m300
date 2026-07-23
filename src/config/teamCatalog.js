@@ -241,6 +241,126 @@ const rawRegionalOverrides = [
   ['TRI-RD-23B', 'Trairi', 'Parceira', 'Atlântico'],
   ['TRI-RD-31B', 'Trairi', 'Parceira', 'Atlântico'],
   ['TRI-RD-32C', 'Trairi', 'Parceira', 'Atlântico'],
+
+  // Centro Sul: equipes que chegavam com a Base genérica "Centro Sul".
+  ['ICL-RD-90D', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICL-SK-90B', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICL-SK-90D', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICO-RD-90C', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICO-RD-90D', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICO-SK-90B', 'Icó', 'Própria', 'Centro Sul'],
+  ['ICO-TR-90C', 'Icó', 'Própria', 'Centro Sul'],
+  ['IGT-RD-81B', 'Iguatu', 'Própria', 'Centro Sul'],
+  ['IGT-RD-84B', 'Iguatu', 'Própria', 'Centro Sul'],
+  ['IGT-RD-91D', 'Iguatu', 'Própria', 'Centro Sul'],
+  ['TAA-TR-90D', 'Tauá', 'Própria', 'Centro Sul'],
+  ['TAL-EN-01C', 'Senador', 'Parceira', 'Centro Sul'],
+  ['TAM-EN-01C', 'Senador', 'Parceira', 'Centro Sul'],
+  ['TAM-RD-90C', 'Senador', 'Própria', 'Centro Sul'],
+  ['TAS-RD-92B', 'Senador', 'Própria', 'Centro Sul'],
+  ['TAS-RD-93B', 'Senador', 'Própria', 'Centro Sul'],
+  ['TAS-RD-94B', 'Senador', 'Própria', 'Centro Sul'],
+
+  // Sul: complementos informados manualmente com o tipo de equipe
+  // definido explicitamente conforme a classificação operacional fornecida.
+  // Campos Sales
+  ['CPA-EN-01B', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPB-RD-15B', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPN-RD-13B', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPN-RD-13C', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPR-RD-12B', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPR-RD-14D', 'Campos Sales', 'Parceira', 'Sul'],
+  ['CPS-RD-11C', 'Campos Sales', 'Parceira', 'Sul'],
+  // Juazeiro
+  ['JZB-RD-16C', 'Juazeiro', 'Parceira', 'Sul'],
+  ['JZC-RD-90C', 'Juazeiro', 'Própria', 'Sul'],
+  ['JZN-EN-02B', 'Juazeiro', 'Parceira', 'Sul'],
+  ['JZN-RD-22B', 'Juazeiro', 'Parceira', 'Sul'],
+  ['JZN-RD-25B', 'Juazeiro', 'Parceira', 'Sul'],
+  ['JZN-RD-27B', 'Juazeiro', 'Parceira', 'Sul'],
+  ['JZN-RD-90C', 'Juazeiro', 'Própria', 'Sul'],
+  ['JZN-RD-91C', 'Juazeiro', 'Própria', 'Sul'],
+  ['JZN-RD-92C', 'Juazeiro', 'Própria', 'Sul'],
+  ['JZN-RD-93B', 'Juazeiro', 'Própria', 'Sul'],
+  ['JZN-RD-93C', 'Juazeiro', 'Própria', 'Sul'],
+  // Milagres
+  ['MLB-EN-01C', 'Milagres', 'Parceira', 'Sul'],
+  ['MLB-RD-15D', 'Milagres', 'Parceira', 'Sul'],
+  ['MLG-EN-01B', 'Milagres', 'Parceira', 'Sul'],
+  ['MLG-RD-14B', 'Milagres', 'Parceira', 'Sul'],
+  ['MLG-RD-15B', 'Milagres', 'Parceira', 'Sul'],
+  ['MLG-RD-90C', 'Milagres', 'Própria', 'Sul'],
+  ['MLG-RD-91B', 'Milagres', 'Própria', 'Sul'],
+  ['MLG-TR-11C', 'Milagres', 'Parceira', 'Sul'],
+  ['MLM-EN-01C', 'Milagres', 'Parceira', 'Sul'],
+  ['MLP-RD-18B', 'Milagres', 'Parceira', 'Sul'],
+  ['MLS-EN-01B', 'Milagres', 'Parceira', 'Sul'],
+  ['MLS-RD-91B', 'Milagres', 'Própria', 'Sul'],
+  ['MLV-RD-16C', 'Milagres', 'Parceira', 'Sul'],
+
+  // Leste: complementos informados manualmente com o tipo de equipe
+  // definido explicitamente conforme a classificação operacional fornecida.
+  // Aracati
+  ['ARI-RD-11C', 'Aracati', 'Parceira', 'Leste'],
+  ['ARI-RD-12B', 'Aracati', 'Parceira', 'Leste'],
+  ['ARI-RD-12D', 'Aracati', 'Parceira', 'Leste'],
+  ['ARI-RD-90B', 'Aracati', 'Própria', 'Leste'],
+  ['ARI-RD-90C', 'Aracati', 'Própria', 'Leste'],
+  ['ARJ-RD-11C', 'Aracati', 'Parceira', 'Leste'],
+  ['ARJ-RD-90C', 'Aracati', 'Própria', 'Leste'],
+  ['ART-RD-12B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-13C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-14B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-14C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-15B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-15C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-50B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-50D', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-51B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-51D', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-56B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-56C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-57B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-57C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RD-90C', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RL-03B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RL-04B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RL-05B', 'Aracati', 'Parceira', 'Leste'],
+  ['ART-RL-07B', 'Aracati', 'Parceira', 'Leste'],
+  // Jaguaribe
+  ['JGB-EN-01B', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGB-RD-11B', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGB-RD-11C', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGB-RD-50B', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGB-RD-90C', 'Jaguaribe', 'Própria', 'Leste'],
+  ['JGB-SK-90B', 'Jaguaribe', 'Própria', 'Leste'],
+  ['JGI-RD-11C', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGI-RD-12D', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGI-RD-90B', 'Jaguaribe', 'Própria', 'Leste'],
+  ['JGI-RD-91B', 'Jaguaribe', 'Própria', 'Leste'],
+  ['JGR-RD-11B', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGR-RD-11C', 'Jaguaribe', 'Parceira', 'Leste'],
+  ['JGR-RD-90B', 'Jaguaribe', 'Própria', 'Leste'],
+  // Russas
+  ['RSL-EN-01B', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-11B', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-11C', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-12B', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-12C', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-14B', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-14C', 'Russas', 'Parceira', 'Leste'],
+  ['RSL-RD-90B', 'Russas', 'Própria', 'Leste'],
+  ['RSL-RD-90C', 'Russas', 'Própria', 'Leste'],
+  ['RSL-RD-90D', 'Russas', 'Própria', 'Leste'],
+  ['RSM-RD-12B', 'Russas', 'Parceira', 'Leste'],
+  ['RSM-RD-12D', 'Russas', 'Parceira', 'Leste'],
+  ['RSM-RD-90B', 'Russas', 'Própria', 'Leste'],
+  ['RSU-EN-02B', 'Russas', 'Parceira', 'Leste'],
+  ['RSU-RD-11B', 'Russas', 'Parceira', 'Leste'],
+  ['RSU-RD-12C', 'Russas', 'Parceira', 'Leste'],
+  ['RSU-RD-90B', 'Russas', 'Própria', 'Leste'],
+  ['RSU-RD-90C', 'Russas', 'Própria', 'Leste'],
+  ['RSU-RD-90D', 'Russas', 'Própria', 'Leste'],
 ];
 
 const rawTeamCatalog = [
@@ -249,13 +369,25 @@ const rawTeamCatalog = [
   ...rawRegionalOverrides
 ];
 
-export const VTR_TEAM_CATALOG = rawTeamCatalog.map(([equipe, base, tipoEquipe, polo]) => ({
-  equipe,
-  base: canonicalBase(base),
-  periodo: resolveTeamPeriod(equipe),
-  tipoEquipe,
-  polo
-}));
+// Consolida entradas duplicadas por equipe. Correções posteriores podem trocar
+// base/polo sem apagar um tipo de equipe já conhecido no catálogo anterior.
+const mergedTeamCatalog = new Map();
+
+for (const [equipe, base, tipoEquipe, polo] of rawTeamCatalog) {
+  const key = normalizeToken(equipe);
+  if (!key) continue;
+
+  const current = mergedTeamCatalog.get(key);
+  mergedTeamCatalog.set(key, {
+    equipe: String(equipe || '').trim(),
+    base: canonicalBase(base || current?.base || ''),
+    periodo: resolveTeamPeriod(equipe, current?.periodo || ''),
+    tipoEquipe: String(tipoEquipe || current?.tipoEquipe || '').trim(),
+    polo: String(polo || current?.polo || '').trim()
+  });
+}
+
+export const VTR_TEAM_CATALOG = [...mergedTeamCatalog.values()];
 
 export const VTR_TEAM_INDEX = new Map(
   VTR_TEAM_CATALOG.map((entry) => [normalizeToken(entry.equipe), entry])
@@ -293,7 +425,8 @@ export function canonicalBase(base) {
     ['JAGUARIBE', 'Jaguaribe'],
     ['RUSSAS', 'Russas'],
     ['CAMPOSSALES', 'Campos Sales'],
-    ['JUAZEIRODONORTE', 'Juazeiro do Norte'],
+    ['JUAZEIRODONORTE', 'Juazeiro'],
+    ['JUAZEIRO', 'Juazeiro'],
     ['MILAGRES', 'Milagres']
   ]);
   return canonical.get(token) || String(base || '').trim();
