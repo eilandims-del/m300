@@ -1,6 +1,6 @@
 import { normalizeToken, resolveColumn } from '../utils/normalization.js';
 import { BASES_CONFIG, resolveTeam } from '../config/basesConfig.js';
-import { VTR_TEAM_CATALOG, VTR_TEAM_INDEX } from '../config/teamCatalog.js';
+import { VTR_TEAM_CATALOG, VTR_TEAM_INDEX, resolveTeamPeriod } from '../config/teamCatalog.js';
 
 const AUX_COLUMNS = {
   equipe: ['Equipe', 'Nome Equipe', 'Codigo Equipe', 'Código Equipe', 'Cod Equipe', 'Time'],
@@ -70,7 +70,7 @@ export function resolveTeamMetadata(teamName, auxiliaryTeamTable, fallbackConfig
     return {
       equipe: teamName,
       base: found.base || 'Não identificado',
-      periodo: found.periodo || null,
+      periodo: resolveTeamPeriod(teamName, found.periodo),
       tipoEquipe: found.tipoEquipe || 'Não identificado',
       polo: found.polo || byPrefixPolo(teamName, fallbackConfig),
       origem: 'catalogo_vtr'
@@ -82,7 +82,7 @@ export function resolveTeamMetadata(teamName, auxiliaryTeamTable, fallbackConfig
     return {
       equipe: teamName,
       base: byPrefix.base,
-      periodo: null,
+      periodo: resolveTeamPeriod(teamName),
       tipoEquipe: byPrefix.tipo,
       polo: byPrefix.polo,
       origem: 'prefixo'
@@ -92,7 +92,7 @@ export function resolveTeamMetadata(teamName, auxiliaryTeamTable, fallbackConfig
   return {
     equipe: teamName,
     base: 'Não identificado',
-    periodo: null,
+    periodo: resolveTeamPeriod(teamName),
     tipoEquipe: 'Não identificado',
     polo: byPrefix?.polo || 'Não identificado',
     origem: 'nao_identificado'
