@@ -416,6 +416,11 @@ th {
 
   .actions-single {
     justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .actions-single .actions-label {
+    width: 100%;
   }
 
   .actions-single .btn-primary {
@@ -818,8 +823,18 @@ th {
 
 .actions-single {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
   margin-top: 24px;
+}
+
+.actions-single .actions-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.02em;
 }
 
 .actions-single .btn-primary {
@@ -2684,20 +2699,6 @@ a:focus-visible,
 .upload-clear:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.creator-credit {
-  margin: 2px 0 0;
-  padding: 0;
-  text-align: right;
-  font-family: 'Great Vibes', cursive;
-  font-size: 1.05rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.28);
-  line-height: 1.2;
-  user-select: none;
-  pointer-events: none;
 }
 
 /* Virtualização da tabela de evidências: preserva todas as incidências na

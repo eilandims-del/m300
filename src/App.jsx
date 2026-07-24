@@ -93,7 +93,7 @@ export default function App() {
     <main>
       <header className="hero">
         <div className="hero-text">
-          <h1>Dash M300 - Rounds</h1>
+          <h1>Análise - M300</h1>
           {result && (
             <nav className="view-nav">
               <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>Dashboard</button>

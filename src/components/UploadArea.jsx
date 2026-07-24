@@ -17,7 +17,6 @@ export function UploadArea({ onMainFile, loading, mainName, onClear }) {
           Limpar planilha
         </button>
       )}
-      <p className="creator-credit" aria-label="Crédito do autor">Criado por: Lucas Landim</p>
     </div>
   );
 }

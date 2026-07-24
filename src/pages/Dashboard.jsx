@@ -119,6 +119,7 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
       </section>
 
       <section className="panel actions actions-single">
+        <span className="actions-label">Gerar PDF</span>
         <button className="btn-primary" disabled={pdfBusy} onClick={onGeneratePdf}>
           {pdfBusy ? 'Gerando PDF...' : 'Gerar PDF'}
         </button>
