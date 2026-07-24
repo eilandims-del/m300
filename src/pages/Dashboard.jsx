@@ -18,6 +18,7 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
     [analytics.teamSummaries]
   );
   const [heatmapTeams, setHeatmapTeams] = useState([]);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const filteredHeatmapTeams = useMemo(() => {
     if (!heatmapTeams.length) return analytics.teamSummaries;
@@ -119,11 +120,47 @@ export function Dashboard({ dataset, analytics, alerts, onGeneratePdf, pdfBusy }
       </section>
 
       <section className="panel actions actions-single">
-        <span className="actions-label">Gerar PDF</span>
+        <button type="button" className="btn-help" onClick={() => setHelpOpen(true)}>
+          Quer ajuda?
+        </button>
         <button className="btn-primary" disabled={pdfBusy} onClick={onGeneratePdf}>
           {pdfBusy ? 'Gerando PDF...' : 'Gerar PDF'}
         </button>
       </section>
+
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+    </div>
+  );
+}
+
+function HelpModal({ onClose }) {
+  const mailHref = 'mailto:lucas.sousa11@enel.com?subject=Dúvida%20-%20Análise%20M300';
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal-card help-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Suporte</p>
+            <h3 id="help-modal-title">Quer ajuda?</h3>
+            <p className="modal-subtitle">Tire dúvidas sobre o painel ou fale com o responsável.</p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">×</button>
+        </header>
+
+        <div className="modal-body help-modal-body">
+          <a className="help-mail-link" href={mailHref}>
+            Clique aqui e tire dúvida
+          </a>
+          <p className="help-credit">Desenvolvido por: Lucas Landim</p>
+        </div>
+      </div>
     </div>
   );
 }

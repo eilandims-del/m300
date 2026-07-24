@@ -419,10 +419,7 @@ th {
     flex-wrap: wrap;
   }
 
-  .actions-single .actions-label {
-    width: 100%;
-  }
-
+  .actions-single .btn-help,
   .actions-single .btn-primary {
     width: 100%;
     min-width: 0;
@@ -829,18 +826,65 @@ th {
   margin-top: 24px;
 }
 
-.actions-single .actions-label {
+.actions-single .btn-help {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
   color: #0f172a;
-  letter-spacing: 0.02em;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.actions-single .btn-help:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
 }
 
 .actions-single .btn-primary {
   width: auto;
   min-width: 220px;
   padding: 13px 24px;
+}
+
+.help-modal {
+  width: min(420px, 100%);
+}
+
+.help-modal-body {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 24px;
+}
+
+.help-mail-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.help-mail-link:hover {
+  background: #1d4ed8;
+}
+
+.help-credit {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #64748b;
 }
 
 /* ---- Relatório ---- */
