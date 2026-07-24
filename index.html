@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <title>Dash M300 - Rounds</title>
+    <meta name="description" content="Dash M300 - Rounds — painel de análise operacional de equipes e KPIs." />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./favicon.png" />
+
+    <!-- Preview ao compartilhar o link (URL absoluta para crawlers de redes sociais) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Dash M300 - Rounds" />
+    <meta property="og:title" content="Dash M300 - Rounds" />
+    <meta property="og:description" content="Painel de análise operacional de equipes e KPIs." />
+    <meta property="og:image" content="https://scanner-m300.pages.dev/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Dash M300 - Rounds" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dash M300 - Rounds" />
+    <meta name="twitter:description" content="Painel de análise operacional de equipes e KPIs." />
+    <meta name="twitter:image" content="https://scanner-m300.pages.dev/og-image.png" />
+
+    <script>
+      // Ajusta og:url/imagem para o domínio real (útil se houver domínio customizado).
+      (function () {
+        try {
+          var origin = window.location.origin + (window.location.pathname.replace(/\/[^/]*$/, '/') || '/');
+          var image = new URL('og-image.png', origin).href;
+          var absUrl = origin;
+          function setMeta(attr, key, value) {
+            var el = document.querySelector('meta[' + attr + '="' + key + '"]');
+            if (el) el.setAttribute('content', value);
+          }
+          setMeta('property', 'og:url', absUrl);
+          setMeta('property', 'og:image', image);
+          setMeta('name', 'twitter:image', image);
+        } catch (_) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

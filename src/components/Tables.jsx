@@ -1,0 +1,1096 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { KPI_THRESHOLDS, MAX_TEAM_SCORE, formatClassificacao } from '../config/kpiThresholds.js';
+
+import { SCORING_GUIDE, SCORING_TOTAL } from '../config/kpiDisplay.js';
+
+import { describeAlert, formatAlertLabel, groupAlertCounts } from '../services/alerts.js';
+
+import { groupBy } from '../services/kpiCalculator.js';
+
+import { generateEvidencePdf } from '../services/pdfService.js';
+
+import { MultiSelect } from './MultiSelect.jsx';
+
+import { formatNumber, parseDateTimeBr } from '../utils/numberDate.js';
+
+
+
+const SUMMARY_KPIS = KPI_THRESHOLDS;
+
+const EVIDENCE_ROW_HEIGHT = 52;
+const EVIDENCE_VIEWPORT_HEIGHT = 560;
+const EVIDENCE_OVERSCAN = 12;
+
+const EVIDENCE_METRIC_HEADERS = [
+
+  { label: 'Início cal.', hint: 'Horário de abertura da jornada da equipe (hora)' },
+
+  { label: 'Despachada', hint: 'Momento em que a OS foi despachada (hora)' },
+
+  { label: 'A Caminho', hint: 'Registro de saída para atendimento (hora)' },
+
+  { label: 'No Local', hint: 'Chegada do técnico no endereço (hora)' },
+
+  { label: 'Liberada', hint: 'Encerramento/liberação da OS (hora)' },
+
+  { label: 'TR', hint: 'Tempo Real de execução da ordem (minutos)' },
+
+  { label: 'TL', hint: 'Tempo de Locomoção/deslocamento (minutos)' },
+
+  { label: 'HD', hint: 'Horas Disponíveis do dia da equipe (minutos)' },
+
+  { label: 'T. Padrão', hint: 'Tempo padrão previsto para a OS (minutos)' },
+
+  { label: 'TR Imp', hint: 'TR de ordem improdutiva sem solução (minutos)' }
+
+];
+
+
+
+export function TeamSummaryTable({ teams }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const [showScoring, setShowScoring] = useState(false);
+
+  const rankedTeams = useMemo(
+
+    () => [...teams].sort((a, b) => (b.scoreGeral ?? 0) - (a.scoreGeral ?? 0)),
+
+    [teams]
+
+  );
+
+
+
+  return (
+
+    <section className="panel team-summary-panel">
+
+      <div className="section-header collapsible-header">
+
+        <div>
+
+          <h3>Tabela resumo por equipe</h3>
+
+          <p className="section-subtitle">Ranking ordenado pela classificação Spotfire (soma das pontuações), do maior para o menor.</p>
+
+        </div>
+
+        <div className="header-actions">
+
+          <button
+
+            type="button"
+
+            className="info-chip"
+
+            onClick={() => setShowScoring(true)}
+
+            title="Entenda como cada indicador é calculado e pontuado"
+
+          >
+
+            <span aria-hidden="true">ⓘ</span> Como o score é calculado
+
+          </button>
+
+          <button type="button" className="collapse-toggle" onClick={() => setIsExpanded((current) => !current)}>
+
+            {isExpanded ? 'Encurtar' : 'Desencurtar'}
+
+          </button>
+
+        </div>
+
+      </div>
+
+      {showScoring && <ScoringGuideModal onClose={() => setShowScoring(false)} />}
+
+      {!isExpanded ? (
+
+        <p className="collapsed-note">Tabela encurtada. Clique em "Desencurtar" para visualizar o ranking completo.</p>
+
+      ) : (
+
+      <div className="table-wrap">
+
+        <table className="data-table team-summary-table">
+
+          <thead>
+
+            <tr>
+
+              <th>#</th>
+
+              <th>Equipe</th>
+
+              <th>Base</th>
+
+              {SUMMARY_KPIS.map(({ kpi }) => <th key={kpi}>{kpi}</th>)}
+
+              <th>Classificação</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            {rankedTeams.map((team, index) => (
+
+              <tr key={team.equipe}>
+
+                <td className="rank-cell">{index + 1}</td>
+
+                <td className="team-cell">{team.equipe}</td>
+
+                <td>{team.base}</td>
+
+                {SUMMARY_KPIS.map(({ kpi }) => <td key={kpi}>{formatNumber(team.kpis[kpi])}</td>)}
+
+                <td className="score-cell" style={scoreCellStyle(team.scoreGeral)}>
+
+                  {formatClassificacao(team.scoreGeral)}
+
+                </td>
+
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      )}
+
+    </section>
+
+  );
+
+}
+
+
+
+export function EvidenceTable({ rows }) {
+
+  const teamOptions = useMemo(
+
+    () => [...new Set(rows.map((row) => row.equipe).filter(Boolean))].sort(),
+
+    [rows]
+
+  );
+
+  const [selectedTeams, setSelectedTeams] = useState([]);
+
+  const [activeRow, setActiveRow] = useState(null);
+
+  const [dateSort, setDateSort] = useState('desc');
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const evidenceScrollRef = useRef(null);
+
+
+
+  const firstOsIds = useMemo(() => buildFirstOsOfDayIds(rows), [rows]);
+
+
+
+  const filteredRows = useMemo(() => {
+
+    if (!selectedTeams.length) return rows;
+
+    const selected = new Set(selectedTeams);
+
+    return rows.filter((row) => selected.has(row.equipe));
+
+  }, [rows, selectedTeams]);
+
+
+
+  const sortedRows = useMemo(
+
+    () => [...filteredRows].sort((a, b) => compareEvidenceDates(a, b, dateSort)),
+
+    [filteredRows, dateSort]
+
+  );
+
+  const totalRows = sortedRows.length;
+
+  // Virtualização manual: todas as incidências continuam disponíveis na barra
+  // de rolagem, mas apenas as linhas visíveis são criadas no DOM.
+  const virtualStart = Math.max(0, Math.floor(scrollTop / EVIDENCE_ROW_HEIGHT) - EVIDENCE_OVERSCAN);
+  const virtualCount = Math.ceil(EVIDENCE_VIEWPORT_HEIGHT / EVIDENCE_ROW_HEIGHT) + EVIDENCE_OVERSCAN * 2;
+  const virtualEnd = Math.min(totalRows, virtualStart + virtualCount);
+  const visibleRows = sortedRows.slice(virtualStart, virtualEnd);
+  const topSpacerHeight = virtualStart * EVIDENCE_ROW_HEIGHT;
+  const bottomSpacerHeight = Math.max(0, (totalRows - virtualEnd) * EVIDENCE_ROW_HEIGHT);
+
+  useEffect(() => {
+    setScrollTop(0);
+    if (evidenceScrollRef.current) evidenceScrollRef.current.scrollTop = 0;
+  }, [selectedTeams, dateSort, rows]);
+
+  function handleEvidenceScroll(event) {
+    setScrollTop(event.currentTarget.scrollTop);
+  }
+
+  function toggleDateSort() {
+
+    setDateSort((current) => (current === 'asc' ? 'desc' : 'asc'));
+
+  }
+
+
+
+  async function handleExportPdf() {
+
+    if (!sortedRows.length || pdfBusy) return;
+
+    setPdfBusy(true);
+
+    try {
+
+      await new Promise((resolve) => setTimeout(resolve, 40));
+
+      generateEvidencePdf(sortedRows, { teams: selectedTeams });
+
+    } finally {
+
+      setPdfBusy(false);
+
+    }
+
+  }
+
+
+
+  useEffect(() => {
+
+    if (!activeRow) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    function onKeyDown(event) {
+
+      if (event.key === 'Escape') setActiveRow(null);
+
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+
+      document.body.style.overflow = previousOverflow;
+
+      document.removeEventListener('keydown', onKeyDown);
+
+    };
+
+  }, [activeRow]);
+
+
+
+  return (
+
+    <>
+
+      <section className="panel evidence-panel">
+
+        <div className="panel-toolbar">
+
+          <div>
+
+            <h3>Tabela de evidências por OS</h3>
+
+            <p className="section-subtitle">
+
+              {formatNumber(totalRows, 0)} incidência{totalRows === 1 ? '' : 's'} no recorte atual.
+
+              Linha do tempo por equipe: cada dia começa pela 1ª OS (em destaque).
+
+            </p>
+
+          </div>
+
+          <div className="panel-tools">
+
+            <button
+
+              type="button"
+
+              className="btn-secondary"
+
+              onClick={handleExportPdf}
+
+              disabled={pdfBusy || !totalRows}
+
+            >
+
+              {pdfBusy ? 'Gerando PDF...' : 'Exportar PDF'}
+
+            </button>
+
+            <div className="panel-filter">
+
+              <MultiSelect
+
+                label="Equipes"
+
+                options={teamOptions}
+
+                selected={selectedTeams}
+
+                onChange={setSelectedTeams}
+
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="table-wrap evidence-table-wrap" ref={evidenceScrollRef} onScroll={handleEvidenceScroll}>
+
+          <table className="data-table evidence-table">
+
+            <thead>
+
+              <tr className="evidence-group-row">
+
+                <th colSpan={4}>Identificação</th>
+
+                <th colSpan={5} className="evidence-group-timeline">Linha do tempo da OS</th>
+
+                <th colSpan={5} className="evidence-group-tempos">Tempos (min)</th>
+
+                <th aria-hidden="true"></th>
+
+              </tr>
+
+              <tr>
+
+                <th>
+
+                  <button type="button" className="sortable-th" onClick={toggleDateSort}>
+
+                    Data
+
+                    <span className="sort-indicator">{dateSort === 'asc' ? '↑' : '↓'}</span>
+
+                  </button>
+
+                </th>
+
+                <th>Equipe</th>
+
+                <th>OS</th>
+
+                <th>Causa</th>
+
+                {EVIDENCE_METRIC_HEADERS.map(({ label, hint }) => (
+
+                  <HintTh key={label} label={label} hint={hint} />
+
+                ))}
+
+                <th></th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {topSpacerHeight > 0 && (
+                <tr className="virtual-spacer-row" aria-hidden="true">
+                  <td colSpan={15} style={{ height: `${topSpacerHeight}px` }} />
+                </tr>
+              )}
+              {visibleRows.map((row) => {
+
+                const hasDetails = row.alerts.length > 0 || Boolean(row.diagnostic);
+
+                const isFirstOs = firstOsIds.has(row.id);
+
+                const rowClass = [
+
+                  hasDetails ? 'evidence-row-clickable' : 'evidence-row-muted',
+
+                  isFirstOs ? 'evidence-row-first-os' : ''
+
+                ].filter(Boolean).join(' ');
+
+                return (
+
+                  <tr
+
+                    key={row.id}
+
+                    className={rowClass}
+
+                    onClick={hasDetails ? () => setActiveRow(row) : undefined}
+
+                    tabIndex={hasDetails ? 0 : -1}
+
+                    onKeyDown={hasDetails ? (event) => {
+
+                      if (event.key === 'Enter' || event.key === ' ') {
+
+                        event.preventDefault();
+
+                        setActiveRow(row);
+
+                      }
+
+                    } : undefined}
+
+                  >
+
+                    <td className="date-cell">{row.dataReferenciaKey}</td>
+
+                    <td className="team-cell">{row.equipe}</td>
+
+                    <td className={`os-cell${isFirstOs ? ' os-cell-first' : ''}`}>
+
+                      {row.nrOrdem}
+
+                      {isFirstOs && <span className="os-first-tag">1ª do dia</span>}
+
+                    </td>
+
+                    <td className="cause-cell">{row.causa}</td>
+
+                    <td className="time-cell time-cell-start">{formatTime(row.inicioCalendario)}</td>
+
+                    <td className="time-cell">{formatTime(row.despachada)}</td>
+
+                    <td className="time-cell">{formatTime(row.aCaminho)}</td>
+
+                    <td className="time-cell">{formatTime(row.noLocal)}</td>
+
+                    <td className="time-cell">{formatTime(row.liberada)}</td>
+
+                    <td className="num-cell num-cell-start">{formatNumber(row.trOrdem)}</td>
+
+                    <td className="num-cell">{formatNumber(row.tlOrdem)}</td>
+
+                    <td className="num-cell">{formatNumber(row.hdTotal)}</td>
+
+                    <td className="num-cell">{formatNumber(row.tempoPadrao)}</td>
+
+                    <td className="num-cell">{row.trOrdemImpSs > 0 ? formatNumber(row.trOrdemImpSs) : '—'}</td>
+
+                    <td className="evidence-action-cell">
+
+                      {hasDetails ? (
+
+                        <span className="evidence-badge" title="Ver alertas e diagnóstico">
+
+                          {row.alerts.length || '•'}
+
+                        </span>
+
+                      ) : (
+
+                        <span className="evidence-badge empty">—</span>
+
+                      )}
+
+                    </td>
+
+                  </tr>
+
+                );
+
+              })}
+              {bottomSpacerHeight > 0 && (
+                <tr className="virtual-spacer-row" aria-hidden="true">
+                  <td colSpan={15} style={{ height: `${bottomSpacerHeight}px` }} />
+                </tr>
+              )}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </section>
+
+
+
+      {activeRow && (
+
+        <EvidenceDetailModal row={activeRow} onClose={() => setActiveRow(null)} />
+
+      )}
+
+    </>
+
+  );
+
+}
+
+
+
+function ScoringGuideModal({ onClose }) {
+
+  useEffect(() => {
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    function onKeyDown(event) {
+
+      if (event.key === 'Escape') onClose();
+
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+
+      document.body.style.overflow = previousOverflow;
+
+      document.removeEventListener('keydown', onKeyDown);
+
+    };
+
+  }, [onClose]);
+
+
+
+  return (
+
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+
+      <div
+
+        className="modal-card scoring-modal"
+
+        role="dialog"
+
+        aria-modal="true"
+
+        aria-labelledby="scoring-modal-title"
+
+        onClick={(event) => event.stopPropagation()}
+
+      >
+
+        <header className="modal-header">
+
+          <div>
+
+            <p className="modal-eyebrow">Como funciona a pontuação</p>
+
+            <h3 id="scoring-modal-title">Cálculo dos indicadores e do score</h3>
+
+            <p className="modal-subtitle">
+
+              Cada indicador vale um máximo de pontos e cresce de forma linear dentro de uma faixa.
+
+              Score máximo ≈ {SCORING_TOTAL} pts.
+
+            </p>
+
+          </div>
+
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">×</button>
+
+        </header>
+
+
+
+        <div className="modal-body">
+
+          {SCORING_GUIDE.map((section) => (
+
+            <section className="modal-section" key={section.group}>
+
+              <h4>{section.group}</h4>
+
+              <div className="scoring-grid">
+
+                {section.indicators.map((item) => (
+
+                  <article className="scoring-card" key={item.kpi}>
+
+                    <div className="scoring-card-head">
+
+                      <strong>{item.kpi}</strong>
+
+                      <span className={`scoring-weight${item.max ? '' : ' is-info'}`}>
+
+                        {item.max ? `${formatNumber(item.max)} pts` : 'informativo'}
+
+                      </span>
+
+                    </div>
+
+                    <code className="scoring-formula">{item.formula}</code>
+
+                    <div className="scoring-meta">
+
+                      <span>Faixa: {item.range}</span>
+
+                      <span>{item.better === 'higher' ? 'Maior é melhor ↑' : 'Menor é melhor ↓'}</span>
+
+                    </div>
+
+                    <p className="scoring-note">{item.note}</p>
+
+                  </article>
+
+                ))}
+
+              </div>
+
+            </section>
+
+          ))}
+
+
+
+          <section className="modal-section">
+
+            <h4>Lógica das faixas</h4>
+
+            <ul className="scoring-logic">
+
+              <li><strong>Abaixo do mínimo:</strong> 0 ponto — desempenho insuficiente.</li>
+
+              <li><strong>Dentro da faixa:</strong> pontos sobem (ou descem) de forma proporcional ao valor.</li>
+
+              <li><strong>Acima do teto:</strong> pontuação máxima travada, sem bônus adicional.</li>
+
+              <li>Para indicadores de tempo (TMR, 1º Login, 1º Desloc., Retorno Base) a lógica é inversa: quanto menor o tempo, maior a pontuação.</li>
+
+            </ul>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+
+function HintTh({ label, hint }) {
+
+  return (
+
+    <th className="hint-th" title={hint}>
+
+      <span>{label}</span>
+
+    </th>
+
+  );
+
+}
+
+
+
+function EvidenceDetailModal({ row, onClose }) {
+
+  const alertTags = useMemo(() => [...new Set(row.alerts)], [row.alerts]);
+
+  const diagnosticItems = useMemo(() => groupAlertCounts(row.alerts), [row.alerts]);
+
+
+
+  return (
+
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+
+      <div
+
+        className="modal-card evidence-modal"
+
+        role="dialog"
+
+        aria-modal="true"
+
+        aria-labelledby="evidence-modal-title"
+
+        onClick={(event) => event.stopPropagation()}
+
+      >
+
+        <header className="modal-header">
+
+          <div>
+
+            <p className="modal-eyebrow">Evidência operacional</p>
+
+            <h3 id="evidence-modal-title">OS {row.nrOrdem || '—'}</h3>
+
+            <p className="modal-subtitle">{row.equipe} · {row.dataReferenciaKey}</p>
+
+          </div>
+
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">×</button>
+
+        </header>
+
+
+
+        <div className="modal-body">
+
+          <section className="modal-section">
+
+            <h4>Alertas</h4>
+
+            {alertTags.length ? (
+
+              <ul className="alert-tag-list">
+
+                {alertTags.map((alert) => (
+
+                  <li key={alert} title={describeAlert(alert)}>{formatAlertLabel(alert)}</li>
+
+                ))}
+
+              </ul>
+
+            ) : (
+
+              <p className="modal-empty">Nenhum alerta registrado para esta OS.</p>
+
+            )}
+
+          </section>
+
+
+
+          <section className="modal-section">
+
+            <h4>Diagnóstico textual</h4>
+
+            {diagnosticItems.length ? (
+
+              <ul className="diagnostic-list">
+
+                {diagnosticItems.map(({ code, label, recommendation }) => (
+
+                  <li key={code} className="diagnostic-item">
+
+                    <strong>{label}</strong>
+
+                    <p>{recommendation}</p>
+
+                  </li>
+
+                ))}
+
+              </ul>
+
+            ) : (
+
+              <p className="diagnostic-text diagnostic-ok">Operação dentro do esperado — nenhuma ação requerida.</p>
+
+            )}
+
+          </section>
+
+
+
+          <section className="modal-section modal-meta-grid modal-meta-compact">
+
+            <div><span>Classe</span><strong>{row.classe || '—'}</strong></div>
+
+            <div><span>Causa</span><strong>{row.causa || '—'}</strong></div>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+
+export function AlertTable({ alerts }) {
+
+  const teamOptions = useMemo(
+
+    () => [...new Set(alerts.map((alert) => alert.equipe).filter(Boolean))].sort(),
+
+    [alerts]
+
+  );
+
+  const [selectedTeams, setSelectedTeams] = useState([]);
+
+
+
+  const filteredAlerts = useMemo(() => {
+
+    if (!selectedTeams.length) return alerts;
+
+    const selected = new Set(selectedTeams);
+
+    return alerts.filter((alert) => selected.has(alert.equipe));
+
+  }, [alerts, selectedTeams]);
+
+
+
+  return (
+
+    <section className="panel">
+
+      <div className="panel-toolbar">
+
+        <div>
+
+          <h3>Tabela de alertas por equipe</h3>
+
+        </div>
+
+        <div className="panel-filter">
+
+          <MultiSelect
+
+            label="Equipes"
+
+            options={teamOptions}
+
+            selected={selectedTeams}
+
+            onChange={setSelectedTeams}
+
+          />
+
+        </div>
+
+      </div>
+
+      <div className="table-wrap">
+
+        <table className="data-table">
+
+          <thead>
+
+            <tr>
+
+              <th>Equipe</th>
+
+              <th>Alerta</th>
+
+              <th>Quantidade</th>
+
+              <th>Pior ocorrência</th>
+
+              <th>Recomendação operacional</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            {filteredAlerts.slice(0, 300).map((alert) => (
+
+              <tr key={`${alert.equipe}-${alert.alerta}`}>
+
+                <td>{alert.equipe}</td>
+
+                <td>{alert.alerta}</td>
+
+                <td>{alert.quantidade}</td>
+
+                <td>{alert.piorOcorrencia}</td>
+
+                <td>{alert.recomendacao}</td>
+
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+  );
+
+}
+
+
+
+function scoreCellStyle(score) {
+
+  const ratio = Math.min(1, Math.max(0, (score ?? 0) / MAX_TEAM_SCORE));
+
+  const r = Math.round(254 - ratio * (254 - 34));
+
+  const g = Math.round(226 - ratio * (226 - 197));
+
+  const b = Math.round(226 - ratio * (226 - 94));
+
+  const text = ratio > 0.55 ? '#14532d' : ratio > 0.3 ? '#713f12' : '#991b1b';
+
+  return {
+
+    backgroundColor: `rgb(${r}, ${g}, ${b})`,
+
+    color: text,
+
+    fontWeight: 800
+
+  };
+
+}
+
+
+
+function compareEvidenceDates(a, b, direction) {
+
+  const dayDiff = evidenceDateTimestamp(a) - evidenceDateTimestamp(b);
+
+  if (dayDiff !== 0) return direction === 'asc' ? dayDiff : -dayDiff;
+
+  // Mesmo dia: agrupa por equipe e segue a linha do tempo do turno,
+
+  // sempre começando pela 1ª OS do dia (ordem cronológica crescente).
+
+  const teamDiff = String(a.equipe || '').localeCompare(String(b.equipe || ''));
+
+  if (teamDiff !== 0) return teamDiff;
+
+  return orderTimestamp(a) - orderTimestamp(b);
+
+}
+
+
+
+function evidenceDateTimestamp(row) {
+
+  if (typeof row.dataReferenciaDate === 'number' && Number.isFinite(row.dataReferenciaDate)) {
+
+    return row.dataReferenciaDate;
+
+  }
+
+  if (row.dataReferenciaDate instanceof Date && !Number.isNaN(row.dataReferenciaDate.getTime())) {
+
+    return row.dataReferenciaDate.getTime();
+
+  }
+
+  const parsed = parseDateKey(row.dataReferenciaKey);
+
+  return parsed ? parsed.getTime() : 0;
+
+}
+
+
+
+function parseDateKey(key) {
+
+  if (!key) return null;
+
+  const [day, month, year] = String(key).split('/').map(Number);
+
+  if (!day || !month || !year) return null;
+
+  return new Date(year, month - 1, day);
+
+}
+
+
+
+function buildFirstOsOfDayIds(rows) {
+
+  const firstIds = new Set();
+
+
+
+  for (const groupRows of groupBy(rows, (row) => `${row.equipe}|${row.dataReferenciaKey}`).values()) {
+
+    const ordered = [...groupRows].sort((a, b) => orderTimestamp(a) - orderTimestamp(b));
+
+    const first = ordered.find((row) => row.nrOrdem) || ordered[0];
+
+    if (first?.id) firstIds.add(first.id);
+
+  }
+
+
+
+  return firstIds;
+
+}
+
+
+
+function orderTimestamp(row) {
+
+  const candidates = [row.despachada, row.aCaminho, row.noLocal, row.liberada];
+
+  for (const value of candidates) {
+
+    const date = parseDateTimeBr(value);
+
+    if (date) return date.getTime();
+
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+
+}
+
+
+
+function formatTime(value) {
+
+  if (value == null || value === '') return '—';
+
+  const date = parseDateTimeBr(value);
+
+  if (date) {
+
+    const hh = String(date.getHours()).padStart(2, '0');
+
+    const mm = String(date.getMinutes()).padStart(2, '0');
+
+    return `${hh}:${mm}`;
+
+  }
+
+  const text = String(value).trim();
+
+  const match = text.match(/(\d{1,2}:\d{2})/);
+
+  return match ? match[1] : '—';
+
+}
+
+
